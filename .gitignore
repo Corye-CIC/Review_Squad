@@ -1,0 +1,13 @@
+# Squad memory (session-specific, not portable)
+.review-squad/
+
+# Superpowers brainstorm cache
+.superpowers/
+
+# Session files
+plan.md
+progress.md
+.claude/handoff.md
+
+# OS
+.DS_Store
