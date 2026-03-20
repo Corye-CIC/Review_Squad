@@ -18,7 +18,7 @@ Run the squad in consultation mode before implementation begins. Each agent anal
 The squad:
 1. **FC** — Proposes architecture, patterns, naming, interfaces
 2. **Jared** — Audits existing systems, defines security requirements, plans DB changes
-3. **Stevey** — Designs UI components, interactions, accessibility (if frontend)
+3. **Stevey** — Designs UI components, interactions, accessibility (if frontend) + audits data pathways, service connectivity, and integration efficiency (always)
 4. **PM Cory** — Loads prior learnings, challenges assumptions, proposes scope division
 5. **Nando** — Resolves conflicts, locks down interfaces, produces the Implementation Brief
 
@@ -65,7 +65,7 @@ mkdir -p "${SQUAD_DIR}/agent-notes"
 
 ## Step 3: Spawn consultation agents in parallel
 
-Spawn FC, Jared, PM Cory in parallel using the Agent tool. Add Stevey if the task involves frontend.
+Spawn FC, Jared, Stevey, PM Cory in parallel using the Agent tool. Stevey always participates (connectivity hat always on; frontend hat activates when frontend is in scope).
 
 Each agent prompt must include:
 - The task description ($ARGUMENTS) — or Emily's plan if it exists
@@ -98,8 +98,8 @@ Here are the consultation briefs from your squad:
 === JARED — Systems & Security Brief ===
 {jared_output}
 
-=== STEVEY — UX/UI Design Brief ===
-{stevey_output (if applicable)}
+=== STEVEY — Design & Connectivity Brief ===
+{stevey_output}
 
 === PM CORY — Consultation Notes ===
 {pm_cory_output}

@@ -18,7 +18,7 @@ Execute parallel implementation using the squad. Each agent writes code in their
 The squad:
 1. **FC** — Writes core business logic, models, utilities, type definitions
 2. **Jared** — Writes auth, validation, DB queries, security hardening
-3. **Stevey** — Writes frontend components, styles, interactions, accessibility (if frontend)
+3. **Stevey** — Writes frontend components, styles, interactions, accessibility (if frontend) + service clients, caching, circuit breakers, integration tests (always)
 4. **PM Cory** — Coordinates agents, manages interfaces, tracks progress, persists learnings
 5. **Nando** — Spot-checks quality, resolves conflicts, writes integration glue, final verification
 </objective>
@@ -109,7 +109,7 @@ Implementation complete. Here are the agent reports:
 {jared_report}
 
 === STEVEY ===
-{stevey_report (if applicable)}
+{stevey_report}
 
 === PM CORY ===
 {pm_cory_coordination_report}

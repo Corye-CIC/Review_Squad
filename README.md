@@ -343,7 +343,7 @@ agents/                  # Agent definitions (6 agents)
   jared.md               #   Security, efficiency, systems integration
   nando.md               #   Lead architect, squad director
   pm-cory.md             #   PM, creative challenger, memory agent
-  stevey-boy-choi.md     #   UX/UI designer, frontend implementer
+  stevey-boy-choi.md     #   UX/UI designer, frontend implementer, connectivity specialist
 commands/                # Lifecycle commands (7 commands)
   discuss.md             #   Problem exploration
   research.md            #   Pattern and technology research
