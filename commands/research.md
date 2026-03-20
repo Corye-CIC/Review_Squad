@@ -18,8 +18,8 @@ allowed-tools:
 Run Emily and PM Cory in research mode to investigate open questions from the discussion phase, evaluate technology options, analyze codebase patterns, and identify risks.
 
 The research team:
-1. **Emily** (lead) — Technology evaluation, prior art, accessibility patterns, risk identification, recommendation synthesis
-2. **PM Cory** (co-lead) — Codebase exploration, existing pattern surfacing, prior session memory
+1. **Emily** (`emily-research`) — Technology evaluation, prior art, accessibility patterns, risk identification, recommendations
+2. **PM Cory** (`pm-cory-early`) — Codebase exploration, existing pattern surfacing, prior session memory
 </objective>
 
 <context>
@@ -48,17 +48,15 @@ DISCUSSION_PATH="${SQUAD_DIR}/current-discussion.md"
 
 ## Step 2: Spawn Emily and PM Cory in parallel
 
-**Emily** receives:
+**`emily-research`** receives:
 - The discussion summary (or research questions)
-- Instruction to operate in **research mode**
 - Instruction to evaluate technology options, research accessibility patterns, identify risks
 - Working directory path
 
-**PM Cory** receives:
+**`pm-cory-early`** receives:
 - The discussion summary (or research questions)
 - SQUAD_DIR path for persistent context
-- Instruction to operate in **research mode** — explore codebase for existing patterns, surface prior approach memories
-- Instruction to grep/read relevant source files to find existing patterns
+- Phase instruction: "You are in the **research** phase — explore codebase for existing patterns, surface prior approach memories, grep/read relevant source files"
 - Working directory path
 
 ## Step 3: Synthesize research

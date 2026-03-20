@@ -13,11 +13,30 @@
 // Tracks edit counts in a temp file per session.
 
 const fs = require('fs');
+const http = require('http');
 const path = require('path');
 const os = require('os');
 
 const EDIT_THRESHOLD = 5;       // Unique files edited before suggesting review
 const DEBOUNCE_MS = 600000;     // 10 minutes between advisories
+
+function postLifecycle(event, agent, data) {
+  try {
+    const body = JSON.stringify({ event, ...(agent && { agent }), ...(data && { data }) });
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: 4002,
+      path: '/lifecycle',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 1000,
+    }, () => {});
+    req.on('error', () => {});
+    req.on('timeout', () => { req.destroy(); });
+    req.write(body);
+    req.end();
+  } catch (_) {}
+}
 
 let input = '';
 const stdinTimeout = setTimeout(() => process.exit(0), 3000);
@@ -36,8 +55,8 @@ process.stdin.on('end', () => {
 
     // Check if review squad agents exist (globally or locally)
     const hasSquad = fs.existsSync(path.join(cwd, '.review-squad')) ||
-      fs.existsSync(path.join(cwd, '.claude', 'agents', 'nando.md')) ||
-      fs.existsSync(path.join(process.env.HOME || '', '.claude', 'agents', 'nando.md'));
+      fs.existsSync(path.join(cwd, '.claude', 'agents', 'nando-review.md')) ||
+      fs.existsSync(path.join(process.env.HOME || '', '.claude', 'agents', 'nando-review.md'));
 
     if (!hasSquad) {
       process.exit(0);
@@ -175,11 +194,24 @@ process.stdin.on('end', () => {
     // ── Detect review completion (Nando's final verdict from a /review run) ──
     if (toolName === 'Agent') {
       const outputStr = typeof toolOutput === 'string' ? toolOutput : JSON.stringify(toolOutput);
-      if (/Review Squad:\s*(APPROVED|REVISE|BLOCK)/i.test(outputStr) ||
-          /Final Verdict:\s*(APPROVE|REVISE|BLOCK)/i.test(outputStr)) {
+
+      // Nando verdict detection
+      const nandoSquadMatch = outputStr.match(/Review Squad:\s*(APPROVED|REVISE|BLOCK)/i);
+      const nandoFinalMatch = outputStr.match(/Final Verdict:\s*(APPROVE|REVISE|BLOCK)/i);
+      if (nandoSquadMatch || nandoFinalMatch) {
+        const verdict = (nandoSquadMatch || nandoFinalMatch)[1].toUpperCase();
+        postLifecycle('nando-verdict', 'nando', verdict);
+        postLifecycle('review-complete', null, verdict);
         state.reviewRun = true;
         fs.writeFileSync(stateFile, JSON.stringify(state));
         process.exit(0);
+      }
+
+      // Emily verdict detection — scoped to Emily's output section
+      const emilyMatch = outputStr.match(/Emily['']?s?\s+(?:Final\s+)?Verdict[:\s]*(CONFIRM|CHALLENGE)\b/i);
+      if (emilyMatch) {
+        const verdict = emilyMatch[1].toUpperCase();
+        postLifecycle('emily-verdict', 'emily', verdict);
       }
     }
 
@@ -281,9 +313,11 @@ process.stdin.on('end', () => {
         `${state.editedFiles.length} file(s) changed this session (${fileList}). ` +
         'Consider running the Review Squad before committing or testing. ' +
         'Ask the user: "Would you like to run the Review Squad on these changes before proceeding?" ' +
-        'If declined, continue normally. Spawn agents: father-christmas, jared, ' +
-        'stevey-boy-choi, pm-cory in parallel, then nando to synthesize.';
+        'If declined, continue normally. Spawn agents: father-christmas-review, jared-review, ' +
+        'stevey-boy-choi-review, pm-cory-review in parallel, then nando-review to synthesize, then emily-review for final verdict.';
     }
+
+    postLifecycle('review-complete', null, isGsdTrigger ? 'gsd' : triggerReason);
 
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {

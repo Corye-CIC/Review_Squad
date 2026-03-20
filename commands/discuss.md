@@ -16,8 +16,8 @@ allowed-tools:
 Run Emily and PM Cory in discussion mode to explore the problem space, gather requirements, define success criteria, and identify open questions for research.
 
 The discussion team:
-1. **Emily** (lead) — Problem framing, requirements gathering, success criteria, accessibility requirements, UX vision
-2. **PM Cory** (co-lead) — Prior learnings, fresh perspective challenges, memory retention
+1. **Emily** (`emily-discuss`) — Problem framing, requirements, success criteria, accessibility, UX vision
+2. **PM Cory** (`pm-cory-early`) — Prior learnings, fresh perspective challenges, memory retention
 </objective>
 
 <context>
@@ -50,17 +50,16 @@ mkdir -p "${SQUAD_DIR}/agent-notes"
 
 Spawn both agents using the Agent tool:
 
-**Emily** receives:
+**`emily-discuss`** receives:
 - The task description ($ARGUMENTS)
 - Project context gathered in Step 1
-- Instruction to operate in **discuss mode**
 - Instruction to define requirements, success criteria, and accessibility needs
 - Working directory path
 
-**PM Cory** receives:
+**`pm-cory-early`** receives:
 - The task description ($ARGUMENTS)
 - SQUAD_DIR path for loading persistent context
-- Instruction to operate in **discuss mode** — surface prior learnings, challenge assumptions, bounce ideas with Emily
+- Phase instruction: "You are in the **discuss** phase — surface prior learnings, challenge assumptions, bounce ideas with Emily"
 - Working directory path
 
 ## Step 4: Synthesize discussion

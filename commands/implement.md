@@ -15,13 +15,7 @@ allowed-tools:
 <objective>
 Execute parallel implementation using the squad. Each agent writes code in their domain following the Implementation Brief produced by `/consult`. Emily designs validation tests in parallel. PM Cory coordinates. Nando oversees integration.
 
-The squad:
-1. **FC** — Writes core business logic, models, utilities, type definitions
-2. **Jared** — Writes auth, validation, DB queries, security hardening
-3. **Stevey** — Writes frontend components, styles, interactions, accessibility (if frontend) + service clients, caching, circuit breakers, integration tests (always)
-4. **Emily** — Designs validation tests in parallel (Playwright E2E if installed, automated + manual otherwise). Tests are ready for `/review`.
-5. **PM Cory** — Coordinates agents, manages interfaces, tracks progress, persists learnings
-6. **Nando** — Spot-checks quality, resolves conflicts, writes integration glue, final verification
+The squad: `father-christmas-implement`, `jared-implement`, `stevey-boy-choi-implement` (implementation) + `emily-implement` (validation tests) + `pm-cory-implement` (coordination) → `nando-implement` (integration check).
 </objective>
 
 <context>
@@ -74,11 +68,10 @@ Each agent prompt must include:
 - The shared interfaces they need to define or implement
 - The full Implementation Brief for context
 - Emily's accessibility requirements relevant to their scope (if plan exists)
-- Instruction to operate in **implement mode**
 - Instruction to commit each logical unit atomically
 - Working directory path
 
-Spawn PM Cory alongside to coordinate and track.
+Spawn `pm-cory-implement` alongside to coordinate and track.
 
 ## Step 4: Verify Wave 1, spawn Wave 2
 
@@ -89,12 +82,11 @@ After Wave 1 completes:
 
 Spawn Wave 2 agents **in parallel** — they can work simultaneously now that foundations exist.
 
-Also spawn Emily in **implement mode** in parallel with Wave 2. Emily designs validation tests while the implementation agents write production code. Emily's prompt must include:
+Also spawn `emily-implement` in parallel with Wave 2. Emily designs validation tests while the implementation agents write production code. Emily's prompt must include:
 - The full Implementation Brief
 - Emily's plan (if it exists) — especially success criteria and accessibility requirements
 - Wave 1 outputs (file paths and interfaces) so tests can reference real code
 - The project's test infrastructure (Playwright installed? Jest/Vitest? Test directory conventions?)
-- Instruction to operate in **implement mode** (validation design)
 
 > **File assignment constraint:** Nando's Implementation Brief must guarantee that no two agents are assigned the same file within a single wave. If two agents need to modify the same file, either sequence them across waves or have one agent own the file with the other providing requirements. Emily writes to the test directory only — no conflict with implementation agents. PM Cory should verify this constraint before wave execution begins.
 
@@ -105,7 +97,7 @@ Each Wave 2 agent prompt must include:
 
 ## Step 5: Post-implementation integration check
 
-After all waves complete, spawn Nando in **implement mode**:
+After all waves complete, spawn `nando-implement`:
 
 ```
 Implementation complete. Here are the agent reports:

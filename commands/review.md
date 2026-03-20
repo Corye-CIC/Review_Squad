@@ -15,13 +15,7 @@ allowed-tools:
 <objective>
 Run the 6-agent Review Squad on changed files. Works in any project — GSD or not.
 
-The squad:
-1. **Father Christmas** — Code quality + novel approaches
-2. **Jared** — Security, efficiency, systems reuse
-3. **Stevey Boy Choi** — UX/UI, frontend performance, accessibility + microservices data connectivity
-4. **PM Cory** — PM, creative challenger, persistent memory agent
-5. **Nando** — Lead reviewer, synthesizes all outputs, delivers technical verdict
-6. **Emily** — Final reviewer: runs E2E validation tests, pressure tests features, verifies plan adherence, accessibility compliance, and UX intent
+The squad: `father-christmas-review`, `jared-review`, `stevey-boy-choi-review`, `pm-cory-review` (parallel) → `nando-review` (synthesis) → `emily-review` (final).
 </objective>
 
 <context>
@@ -85,10 +79,10 @@ RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 Spawn the following agents in parallel using the Agent tool:
 
 **Always spawn:**
-- `father-christmas` — with all changed files
-- `jared` — with all changed files
-- `stevey-boy-choi` — with all changed files (connectivity hat always on; if frontend files present, note which files activate his frontend hat too)
-- `pm-cory` — with all changed files + SQUAD_DIR path for persistent memory
+- `father-christmas-review` — with all changed files
+- `jared-review` — with all changed files
+- `stevey-boy-choi-review` — with all changed files (connectivity hat always on; if frontend files present, note which files activate his frontend hat too)
+- `pm-cory-review` — with all changed files + SQUAD_DIR path for persistent memory
 
 Each agent prompt must include:
 - The complete list of files to review
@@ -98,7 +92,7 @@ Each agent prompt must include:
 
 ## Step 5: Spawn Nando
 
-After all parallel agents complete, spawn `nando` with all their outputs concatenated.
+After all parallel agents complete, spawn `nando-review` with all their outputs concatenated.
 
 Nando receives:
 - All agent outputs
@@ -107,7 +101,7 @@ Nando receives:
 
 ## Step 6: Spawn Emily (Final Review)
 
-After Nando completes, spawn `emily` in **review mode** with:
+After Nando completes, spawn `emily-review` with:
 - Nando's consolidated verdict
 - All agent review outputs
 - The plan from `.review-squad/<project-name>/current-plan.md` (if it exists)

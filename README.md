@@ -35,81 +35,157 @@ You can enter the lifecycle at any point. Smaller tasks can skip straight to `/c
 
 ## Agent Deep Dives
 
+Each agent has a full deep dive document in [`docs/`](docs/). Below is a summary of each agent's role, modes, and review dimensions.
+
+---
+
+### Father Christmas (FC) — Database Admin, Backend Architect & Code Quality Implementer
+
+> **Full deep dive:** [`docs/father-christmas.md`](docs/father-christmas.md)
+
+FC owns the data layer and holds the quality bar for every line of backend code. Enthusiastic about elegant solutions, uncompromising when standards slip.
+
+**Three drives:** Database authority (schema, queries, migrations, indexes, data integrity), quality absolutist (clean, intentional, well-structured code), creative craftsman (solid fundamentals + elegance where it improves clarity).
+
+#### Modes
+
+| Mode | Output | What FC Does |
+|------|--------|-------------|
+| Consult | Architecture Brief | Existing systems audit, database design, pattern selection, naming conventions, interface design, quality gates |
+| Implement | Business logic, DB ops, models, utilities, types, config | Writes core backend code following SOLID principles; defines shared interfaces for other agents |
+| Audit | Systems Audit | Database health, established patterns, dead code/duplication, dependency analysis |
+| Review | Quality + Craft scores | Naming, structure, patterns, readability, DRY, modern idioms, elegance, thoughtfulness |
+
+**Review scores:** `Quality: A/B/C/D/F` | `Craft: Creative / Solid / Lazy`
+
+**Blocker rules:** Boyscout Rule fixes in touched files. Never suggests changes that break functionality for aesthetics.
+
+---
+
+### Jared — Full-Stack Architect, Security Engineer & Systems Integrator
+
+> **Full deep dive:** [`docs/jared.md`](docs/jared.md)
+
+Ruthlessly practical and allergic to waste. Sees the whole system end-to-end and finds every place it can break, leak, or slow down. Direct, no-nonsense, honest to the point of bluntness.
+
+**Four principles:** Architecture owner (end-to-end system structure), reuse what exists (best code = code you didn't write), security non-negotiable (baked in, not bolted on), efficiency matters (batched ops, smart caching, no redundant work).
+
+#### Modes
+
+| Mode | Output | What Jared Does |
+|------|--------|----------------|
+| Consult | Architecture & Security Brief | Architecture proposal, security requirements, efficiency concerns, dependency check, integration points |
+| Implement | Auth, validation, API hardening, full-stack glue | Middleware/guards, input sanitization, rate limiting, CORS, secrets management, connecting FC's and Stevey's work |
+| Audit | Security & Architecture Audit | Auth flows, injection surfaces, privilege escalation, system boundaries, coupling, duplicate code |
+| Review | Security + Efficiency + Reuse scores | Input validation, auth checks, injection vectors, N+1 queries, memory leaks, redundant calls, unused dependencies |
+
+**Review scores:** `Security: PASS/WARN/FAIL` | `Efficiency: PASS/WARN/FAIL` | `Reuse: PASS/WARN/FAIL`
+
+**Blocker rules:** Security issues are always blockers — no exceptions. Points to EXACT file and function when flagging reuse. Quantifies efficiency impact (O(n^2) vs O(n)).
+
+---
+
 ### Stevey Boy Choi — UX/UI Designer, Frontend Implementer & Microservices Connectivity Specialist
 
-Stevey wears two hats and approaches everything with ownership. Laid-back and approachable, but razor sharp — whether that's a pixel-perfect component or a wasteful chain of service calls. He operates across all three squad phases and **always participates in reviews**.
+> **Full deep dive:** [`docs/stevey-boy-choi.md`](docs/stevey-boy-choi.md)
 
-**Hat 1: Frontend** activates when frontend files are in the changeset (detected by path/extension). **Hat 2: Microservices Connectivity** is always on — every changeset gets audited for data pathway efficiency, redundant calls, and service integration health.
+Laid-back and approachable, but razor sharp. Wears two hats: **Frontend** (activates for frontend files) and **Microservices Connectivity** (always on). Owns everything he touches — if it connects to something, he owns that connection too.
 
 #### Core Principles
 
 | Hat | Principle | What Stevey Checks |
 |-----|-----------|-------------------|
-| Frontend | **Visual Quality** | Spacing consistency, alignment, typography hierarchy, color palette, responsive behavior, hover/focus states, transitions |
-| Frontend | **UX Sensibility** | Loading/error/empty/success states, natural interaction flow, destructive action confirmation, disabled states |
-| Frontend | **Performance** | Re-renders, layout thrashing, image optimization, bundle bloat, DOM size, blocking scripts |
-| Frontend | **Accessibility** | WCAG AA contrast, semantic HTML, ARIA labels, keyboard nav, focus management, screen readers, live regions |
-| Connectivity | **Data Pathway Efficiency** | Call chain length — every hop must be justified. Redundant fetches, N+1 across service boundaries, payload bloat, missing pagination |
-| Connectivity | **Redundancy Elimination** | Duplicate fetches, repeated transformations, services querying the same data independently, information assembled more than once per request |
-| Connectivity | **Connection Correctness** | Contract adherence, error propagation, data consistency across services, race conditions at service boundaries |
-| Connectivity | **Resilience** | Timeouts on every outbound call, idempotent retries with backoff, circuit breakers, graceful degradation when dependencies are down |
-| Connectivity | **Ownership Signals** | Dead connections nothing calls, undocumented pathways, shared state leaks (services communicating through shared DBs or filesystem instead of interfaces) |
+| Frontend | **Visual Quality** | Spacing, alignment, typography, color, responsive, hover/focus states, transitions |
+| Frontend | **UX Sensibility** | Loading/error/empty/success states, interaction flow, destructive action confirmation |
+| Frontend | **Accessibility** | WCAG AA contrast, semantic HTML, ARIA, keyboard nav, focus management, screen readers |
+| Connectivity | **Data Pathway Efficiency** | Call chain length, redundant fetches, N+1 across boundaries, payload bloat |
+| Connectivity | **Resilience** | Timeouts on every outbound call, idempotent retries, circuit breakers, graceful degradation |
+| Connectivity | **Ownership Signals** | Dead connections, undocumented pathways, shared state leaks |
 
-#### Consult Mode
+#### Modes
 
-During `/consult`, Stevey provides a **Design & Connectivity Brief** covering:
+| Mode | Output | What Stevey Does |
+|------|--------|-----------------|
+| Consult | Design & Connectivity Brief | Component design, interaction flow, visual approach, data flow mapping, call chain audit, failure mode planning |
+| Implement | Frontend code + connectivity code | HTML/CSS/JS, components, accessibility, service clients, caching layers, circuit breakers, integration tests |
+| Review | 5-dimension ratings | Visual, UX, Performance, Accessibility, Connectivity per file/component/service |
 
-**Frontend (if applicable):**
-- Components needed with states, interaction flow, visual approach, responsive strategy, accessibility plan, existing patterns to follow
+**Review scores:** `Visual: Clean/Decent/Rough` | `UX: Smooth/Okay/Clunky` | `Performance: Fast/Fine/Sluggish` | `Accessibility: Solid/Gaps/Needs Work` | `Connectivity: Clean/Redundant/Fragile`
 
-**Microservices Connectivity (always):**
-- **Data flow mapping** — what services are involved, what data moves between them
-- **Call chain audit** — unnecessary hops, batching opportunities
-- **Shared data identification** — single source of truth vs multiple services fetching independently
-- **Contract review** — are service interfaces well-defined and validated?
-- **Failure mode planning** — retries, timeouts, fallbacks for each downstream dependency
-- **Caching opportunities** — where to cache, what invalidation strategy fits
+**Blocker rules:** Accessibility failures that prevent operation. Redundant service calls that double latency. Missing timeouts on service-to-service calls — every time.
 
-#### Implement Mode
+---
 
-During `/implement`, Stevey writes code across both domains:
+### PM Cory — Program Manager, Creative Challenger & Persistent Memory Agent
 
-**Frontend:** HTML, CSS/SCSS/Tailwind, frontend JS/TS, component architecture, animations, loading/error/empty states, accessibility (ARIA, keyboard nav, focus management), asset optimization.
+> **Full deep dive:** [`docs/pm-cory.md`](docs/pm-cory.md)
 
-**Connectivity:** Service client code (HTTP, gRPC, message queues), request batching/aggregation, caching layers with invalidation, circuit breakers/retries/timeouts, data transformation between service contracts, health check endpoints, integration tests for end-to-end pathways.
+Wide-eyed newcomer with fresh perspective, relentless curiosity, and sharp PM instincts. The only agent with persistent memory — learnings, patterns, and codebase knowledge survive across sessions in `.review-squad/<project-name>/`.
 
-**Key rules:**
-- Every interactive element must be keyboard accessible (frontend)
-- Every service call must have a timeout, every timeout must have a fallback (connectivity)
-- Never duplicate a data fetch that another part of the request lifecycle already performed
-- Consumes FC's data interfaces and Jared's API response shapes / auth flows
-- Owns what he builds — if it connects to something, he verifies the connection end-to-end
+**Three capabilities:** Creative challenger (questions everything, bounces ideas across agents, champions creative solutions), program manager (ensures completeness, removes blockers, synthesizes across agents), persistent memory agent (institutional knowledge that compounds over time).
 
-#### Review Mode
+#### Modes
 
-During `/review`, Stevey rates each file/component/service across five dimensions:
+| Mode | Output | What Cory Does |
+|------|--------|---------------|
+| Consult | Consultation Notes | Loads context, surfaces history, challenges approach, identifies scope boundaries, flags coordination risks |
+| Implement | Coordination (no application code) | Ensures lane discipline, manages shared interfaces, resolves file conflicts, tracks progress, persists learnings |
+| Review | Creative Challenge + PM Status + Memory Update | Probing questions, reviewer coverage check, cross-agent connections, memory persistence |
+| Present | Developer-facing JSON | Files changed, test results, architecture notes, review verdict, risks mitigated |
 
-```
-Visual:        Clean / Decent / Rough       (frontend only)
-UX:            Smooth / Okay / Clunky       (frontend only)
-Performance:   Fast / Fine / Sluggish
-Accessibility: Solid / Gaps / Needs Work    (frontend only)
-Connectivity:  Clean / Redundant / Fragile
-```
+**Memory files:** `codebase-map.md`, `learnings.jsonl`, `patterns.md`, `review-history.md`, `agent-notes/<agent>.md`
 
-Findings tagged `[UX]`, `[VISUAL]`, `[PERF]`, `[A11Y]`, or `[CONN]` with specific fix suggestions.
+**Compounding value:** By the third review cycle, the squad knows the project's conventions, recurring issues, and established patterns.
 
-**Hard rules:**
-- Accessibility failures that prevent operation are always blockers
-- Redundant service calls that double request latency or load are blockers
-- If a service-to-service call has no timeout, that's a finding — every time, no exceptions
+---
 
-#### Cross-Agent Dynamics
+### Nando — Lead Architect & Squad Director
 
-- **With FC:** Shared appreciation for craft. FC owns data models, Stevey owns the pathways between them. Consumes FC's interfaces in both UI and service connections.
-- **With Jared:** "Fast UI = good UI." Jared owns security boundaries, Stevey verifies traffic flows through them correctly. Consumes Jared's API shapes and auth flows.
-- **With PM Cory:** Cory ensures Stevey reviewed all files and links connectivity/UX findings to other agents' domain issues.
-- **With Nando:** Nando enforces Stevey's blockers (accessibility and connectivity) in the consolidated verdict.
+> **Full deep dive:** [`docs/nando.md`](docs/nando.md)
+
+Calm, authoritative, fair. Consolidates four specialist opinions into one clear direction. Produces the Implementation Brief (binding contract for parallel work) and the final consolidated review verdict.
+
+#### Modes
+
+| Mode | Output | What Nando Does |
+|------|--------|----------------|
+| Consult | **Implementation Brief** | Resolves conflicts, validates scope, defines shared interfaces, sets wave order, produces the binding brief |
+| Implement | Oversight report | Spot-checks agent output, resolves integration conflicts, approves deviations, writes integration glue, validates Emily's tests |
+| Review | **Consolidated Verdict** | Reads all reviews, pressure-tests findings, synthesizes into tiered output |
+
+**Implementation Brief sections:** Architecture decision, Wave 1/2 scope assignments, shared interfaces with exact type signatures, security requirements, quality gates, UX/connectivity requirements, conflict resolutions, coordination notes.
+
+**Review tiers:** Blockers > Required Changes > Recommended Improvements > Boyscout Fixes > Highlights
+
+**Verdict:** APPROVE / REVISE / BLOCK
+
+**Hard rules:** Never overrides Jared's security failures or Stevey's accessibility blockers without personal verification. Prioritizes ruthlessly. Resolves contradictions explicitly. If all agents approve clean, doesn't invent problems.
+
+---
+
+### Emily — Product Manager, Validation Test Designer & Final Reviewer
+
+> **Full deep dive:** [`docs/emily.md`](docs/emily.md)
+
+Calm authority with deep experience in requirements engineering and strategic planning. Leads the early phases (Discuss, Research, Plan), designs validation tests during Implementation, and performs the final review after Nando's verdict. Strong creative streak and unwavering accessibility champion.
+
+#### Modes (6 — most of any agent)
+
+| Mode | Output | What Emily Does |
+|------|--------|----------------|
+| Discuss (leads) | Discussion Summary | Problem framing, requirements (must/should/nice-to-have), success criteria, accessibility requirements, UX vision, open questions |
+| Research (leads) | Research Findings | Codebase patterns, technology evaluation with a11y implications, prior art, risk identification, clear recommendation |
+| Plan (leads) | Implementation Plan | Phased deliverables with a11y woven in, scope boundaries, UX validation points, risk mitigations, success validation |
+| Implement | Validation Test Plan | Playwright E2E tests (preferred), framework tests, manual checklists, pressure tests — all mapped to success criteria |
+| Review (final) | Plan Adherence Review | Plan adherence, research alignment, requirements coverage, a11y compliance, UX intent, E2E test results, pressure test results |
+| Present | Stakeholder-facing JSON | Headline, summary, capabilities (new/enhanced/fixed), before/after, impact, accessibility notes |
+
+**Review verdict:** CONFIRM / CHALLENGE
+
+- **CONFIRM** — Implementation aligns. Nando's verdict stands.
+- **CHALLENGE** — Specific items need attention. Explains why each matters.
+
+**Blocker rules:** Accessibility failures are blockers (same weight as Stevey's). Test failures carry the same weight as plan adherence issues. If plan was skipped, notes the gap explicitly.
 
 ---
 
@@ -338,27 +414,57 @@ This directory is gitignored — it's local session state, not portable.
 ## Repository Structure
 
 ```
-agents/                  # Agent definitions (6 agents)
-  emily.md               #   Product manager, final reviewer
-  father-christmas.md    #   DB admin, backend architect, code quality
-  jared.md               #   Security, efficiency, systems integration
-  nando.md               #   Lead architect, squad director
-  pm-cory.md             #   PM, creative challenger, memory agent
-  stevey-boy-choi.md     #   UX/UI designer, frontend implementer, connectivity specialist
-commands/                # Lifecycle commands (7 commands)
-  discuss.md             #   Problem exploration
-  research.md            #   Pattern and technology research
-  plan.md                #   Implementation planning
-  consult.md             #   Pre-implementation consultation
-  implement.md           #   Parallel agent implementation
-  review.md              #   Full squad code review
-  ship.md                #   Presentation, PR, CI monitoring
+agents/                            # Mode-specific agent files (25 files)
+  _shared/
+    rules.md                       #   Shared rules reference (inlined in each file)
+  emily-discuss.md                 #   Emily — discuss mode
+  emily-research.md                #   Emily — research mode
+  emily-plan.md                    #   Emily — plan mode
+  emily-implement.md               #   Emily — implement mode (validation test design)
+  emily-review.md                  #   Emily — final review mode
+  emily-present.md                 #   Emily — stakeholder presentation mode
+  father-christmas-consult.md      #   FC — consult mode
+  father-christmas-implement.md    #   FC — implement mode
+  father-christmas-audit.md        #   FC — audit mode
+  father-christmas-review.md       #   FC — review mode
+  jared-consult.md                 #   Jared — consult mode
+  jared-implement.md               #   Jared — implement mode
+  jared-audit.md                   #   Jared — audit mode
+  jared-review.md                  #   Jared — review mode
+  nando-consult.md                 #   Nando — consult mode
+  nando-implement.md               #   Nando — implement mode
+  nando-review.md                  #   Nando — review mode
+  pm-cory-early.md                 #   PM Cory — discuss/research/plan (consolidated)
+  pm-cory-consult.md               #   PM Cory — consult mode
+  pm-cory-implement.md             #   PM Cory — implement mode
+  pm-cory-review.md                #   PM Cory — review mode
+  pm-cory-present.md               #   PM Cory — developer presentation mode
+  stevey-boy-choi-consult.md       #   Stevey — consult mode
+  stevey-boy-choi-implement.md     #   Stevey — implement mode
+  stevey-boy-choi-review.md        #   Stevey — review mode
+commands/                          # Lifecycle commands (7 commands)
+  discuss.md                       #   Problem exploration
+  research.md                      #   Pattern and technology research
+  plan.md                          #   Implementation planning
+  consult.md                       #   Pre-implementation consultation
+  implement.md                     #   Parallel agent implementation
+  review.md                        #   Full squad code review
+  ship.md                          #   Presentation, PR, CI monitoring
 hooks/
-  review-squad-gate.js   # PostToolUse hook for review advisory
+  review-squad-gate.js             # PostToolUse hook for review advisory
 templates/
-  ship-presentation.html # Self-contained HTML reference template
+  ship-presentation.html           # Self-contained HTML reference template
+services/
+  agent-chat/                      # Agent chat dashboard server
+  chat-bridge/                     # Bridge between agents and chat server
 docs/
-  superpowers/specs/     # Design specifications
+  emily.md                         # Agent deep dive — Emily
+  father-christmas.md              # Agent deep dive — FC
+  jared.md                         # Agent deep dive — Jared
+  nando.md                         # Agent deep dive — Nando
+  pm-cory.md                       # Agent deep dive — PM Cory
+  stevey-boy-choi.md               # Agent deep dive — Stevey
+  superpowers/specs/               # Design specifications
 ```
 
 ## License

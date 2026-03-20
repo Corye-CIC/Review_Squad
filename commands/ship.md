@@ -101,7 +101,7 @@ Spawn three agents in parallel using the Agent tool. All three run simultaneousl
 
 ### Agent 1 -- Emily (present mode)
 
-- **subagent_type:** `emily`
+- **subagent_type:** `emily-present`
 - **Prompt includes:**
   - `git log ${BASE_BRANCH}..HEAD --oneline` output
   - `git diff ${BASE_BRANCH} --stat` output (compact file summary ONLY -- do NOT include full diff)
@@ -160,7 +160,7 @@ Rules:
 
 ### Agent 2 -- PM Cory (present mode)
 
-- **subagent_type:** `pm-cory`
+- **subagent_type:** `pm-cory-present`
 - **Prompt includes:**
   - `git log ${BASE_BRANCH}..HEAD --oneline` output
   - `git diff ${BASE_BRANCH}` output (FULL diff)
@@ -569,10 +569,10 @@ ${FAILED_CHECKS}
 ${DIFF_FILES}
 
 ## Suggested Routing
-- Type/build/lint errors -> FC (father-christmas)
-- Test failures -> FC + Jared (parallel)
-- CI config/security -> Jared
-- Unknown -> FC + Jared (parallel)
+- Type/build/lint errors -> father-christmas-implement
+- Test failures -> father-christmas-implement + jared-implement (parallel)
+- CI config/security -> jared-implement
+- Unknown -> father-christmas-implement + jared-implement (parallel)
 
 ## Next Steps
 Run the next Claude session in this directory. It will detect pr-failure.md and route to the appropriate agents for auto-fix.
@@ -663,7 +663,7 @@ Use this classification table to determine which agent(s) handle each failure:
 
 For each routed agent, spawn with the Agent tool:
 
-**FC (father-christmas):**
+**FC (`father-christmas-implement`):**
 ```
 CI check "{check_name}" failed. Fix the failure.
 
@@ -684,7 +684,7 @@ Rules:
   and report back instead of committing. The fix is too large for auto-resolution.
 ```
 
-**Jared:**
+**Jared (`jared-implement`):**
 ```
 CI check "{check_name}" failed. Fix the failure.
 

@@ -12,15 +12,13 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "${SUBAGENTS_ROOT}/services/chat-bridge/init-session.sh" "consult" "$*"
+```
 <objective>
 Run the squad in consultation mode before implementation begins. Each agent analyzes the task from their specialty, then Nando synthesizes an Implementation Brief that guides parallel implementation. If Emily's plan exists from a prior `/plan` run, it serves as the input for consultation.
 
-The squad:
-1. **FC** — Proposes architecture, patterns, naming, interfaces
-2. **Jared** — Audits existing systems, defines security requirements, plans DB changes
-3. **Stevey** — Designs UI components, interactions, accessibility (if frontend) + audits data pathways, service connectivity, and integration efficiency (always)
-4. **PM Cory** — Loads prior learnings, challenges assumptions, proposes scope division
-5. **Nando** — Resolves conflicts, locks down interfaces, produces the Implementation Brief
+The squad: `father-christmas-consult`, `jared-consult`, `stevey-boy-choi-consult`, `pm-cory-consult` (parallel) → `nando-consult` (synthesis).
 
 > **Recommended flow:** `/discuss` → `/research` → `/plan` → `/consult` → `/implement` → `/review`
 > You can skip directly to `/consult` for smaller tasks, but the full flow produces better outcomes.
@@ -65,20 +63,19 @@ mkdir -p "${SQUAD_DIR}/agent-notes"
 
 ## Step 3: Spawn consultation agents in parallel
 
-Spawn FC, Jared, Stevey, PM Cory in parallel using the Agent tool. Stevey always participates (connectivity hat always on; frontend hat activates when frontend is in scope).
+Spawn `father-christmas-consult`, `jared-consult`, `stevey-boy-choi-consult`, `pm-cory-consult` in parallel using the Agent tool. Stevey always participates (connectivity hat always on; frontend hat activates when frontend is in scope).
 
 Each agent prompt must include:
 - The task description ($ARGUMENTS) — or Emily's plan if it exists
 - If Emily's plan exists, include it verbatim and instruct agents to consult against the plan's requirements, accessibility checklist, and scope boundaries
 - Relevant codebase context (file structure, existing patterns)
-- Instruction to operate in **consult mode**
 - Working directory path
 
-For PM Cory, include the SQUAD_DIR path for loading persistent context.
+For `pm-cory-consult`, include the SQUAD_DIR path for loading persistent context.
 
 ## Step 4: Spawn Nando
 
-After all consultation agents complete, spawn Nando in **consult mode** with all their briefs:
+After all consultation agents complete, spawn `nando-consult` with all their briefs:
 
 ```
 You are consulting on: $ARGUMENTS

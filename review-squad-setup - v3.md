@@ -11,6 +11,7 @@ Portable instructions for the 6-agent full-lifecycle development system. This do
 - **Stevey Boy Choi expanded** — Now wears two hats: Frontend (conditional) + Microservices Connectivity (always on). Audits data pathways across services for efficiency, redundancy, and correctness. Always participates in reviews — no longer frontend-only.
 - **Review Squad Gate hook updated** — Now detects `pr-failure.md`, `pr-success.md`, and `pr-timeout.md` from the `/ship` async watcher. Added `successDetected` state flag. Stevey always included in advisory.
 - **HTML presentation template** — Self-contained dark theme, responsive, accessible (`<h2>` headings, `scope="col"` on tables), system font stack. Lives at `~/.claude/templates/ship-presentation.html`.
+- **Mode-suffixed agents (V3.1)** — 6 monolithic agent files replaced by 25 mode-specific files (`{name}-{mode}.md`). Each file is ~63–76% smaller, loads only the mode it needs, and is registered by Claude Code independently. Setup now includes a cleanup step to remove old monolithic files.
 
 ---
 
@@ -23,12 +24,13 @@ Portable instructions for the 6-agent full-lifecycle development system. This do
 5. [Quick Start](#quick-start)
 6. [Setup Instructions](#setup-instructions)
    - [Step 1: Create the agents directory](#step-1-create-the-agents-directory)
-   - [Step 2: Create all 5 agent files](#step-2-create-all-5-agent-files)
-   - [Step 3: Create command files](#step-3-create-command-files-and-gsd-variant)
-   - [Step 4: Add .review-squad/ to .gitignore](#step-4-add-review-squad-to-gitignore)
-   - [Step 5: Create the auto-fire hook](#step-5-create-the-auto-fire-hook)
-   - [Step 6: Create memory files](#step-6-create-memory-files)
-   - [Step 7: Verify installation](#step-7-verify-installation)
+   - [Step 2: Remove old monolithic agent files (upgrading only)](#step-2-remove-old-monolithic-agent-files-upgrading-only)
+   - [Step 3: Create all 25 mode-suffixed agent files](#step-3-create-all-25-mode-suffixed-agent-files)
+   - [Step 4: Create command files](#step-4-create-command-files-and-gsd-variant)
+   - [Step 5: Add .review-squad/ to .gitignore](#step-5-add-review-squad-to-gitignore)
+   - [Step 6: Create the auto-fire hook](#step-6-create-the-auto-fire-hook)
+   - [Step 7: Create memory files](#step-7-create-memory-files)
+   - [Step 8: Verify installation](#step-8-verify-installation)
    - [Step 8: Test with example commands](#step-8-test-with-example-commands)
 7. [Workflow Reference](#workflow-reference)
 8. [Auto-Fire Trigger Reference](#auto-fire-trigger-reference)
@@ -200,15 +202,28 @@ If you are setting up the Review Squad for the first time, here is the minimal c
 # 1. Create directories
 mkdir -p ~/.claude/agents ~/.claude/commands/gsd ~/.claude/hooks
 
-# 2. Create the 6 agent files (Step 2 below — copy each agent definition)
-#    ~/.claude/agents/father-christmas.md
-#    ~/.claude/agents/jared.md
-#    ~/.claude/agents/stevey-boy-choi.md
-#    ~/.claude/agents/pm-cory.md
-#    ~/.claude/agents/nando.md
-#    ~/.claude/agents/emily.md
+# 2. Remove old monolithic agent files (skip if fresh install)
+#    V3.1 replaced 6 monolithic files with 25 mode-suffixed files.
+#    Old files MUST be removed — if both exist, Claude Code registers both
+#    and the old monolithic agent will shadow the mode-suffixed ones.
+for name in father-christmas jared stevey-boy-choi pm-cory nando emily; do
+  rm -f ~/.claude/agents/${name}.md
+done
 
-# 3. Create the 7 command files (Step 3 below)
+# 3. Copy the 25 mode-suffixed agent files from the repo (Step 2 below)
+#    Pattern: ~/.claude/agents/{name}-{mode}.md
+#    Emily (6):          emily-discuss, emily-implement, emily-plan,
+#                        emily-present, emily-research, emily-review
+#    Father Christmas (4): father-christmas-audit, father-christmas-consult,
+#                          father-christmas-implement, father-christmas-review
+#    Jared (4):          jared-audit, jared-consult, jared-implement, jared-review
+#    Nando (3):          nando-consult, nando-implement, nando-review
+#    PM Cory (5):        pm-cory-consult, pm-cory-early, pm-cory-implement,
+#                        pm-cory-present, pm-cory-review
+#    Stevey (3):         stevey-boy-choi-consult, stevey-boy-choi-implement,
+#                        stevey-boy-choi-review
+
+# 4. Create the 7 command files (Step 3 below)
 #    ~/.claude/commands/discuss.md
 #    ~/.claude/commands/research.md
 #    ~/.claude/commands/plan.md
@@ -217,22 +232,23 @@ mkdir -p ~/.claude/agents ~/.claude/commands/gsd ~/.claude/hooks
 #    ~/.claude/commands/review.md
 #    ~/.claude/commands/gsd/review.md
 
-# 4. Add .review-squad/ to your project's .gitignore
+# 5. Add .review-squad/ to your project's .gitignore
 
-# 5. Create and register the auto-fire hook (Step 5 below)
+# 6. Create and register the auto-fire hook (Step 5 below)
 #    ~/.claude/hooks/review-squad-gate.js
 #    Add hook entry to ~/.claude/settings.json
 
-# 6. Create memory files in your Claude project memory directory (Step 6 below)
+# 7. Create memory files in your Claude project memory directory (Step 6 below)
 
-# 7. Verify installation
-ls ~/.claude/agents/*.md          # Should list 6 files
+# 8. Verify installation
+ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
+#    Should print 25
 ls ~/.claude/commands/*.md        # Should list 6 files
 ls ~/.claude/commands/gsd/*.md    # Should list 1 file
 ls ~/.claude/hooks/*.js           # Should include review-squad-gate.js
 grep review-squad ~/.claude/settings.json  # Should match
 
-# 8. Test it
+# 9. Test it
 #    /discuss Add a user profile page with avatar upload
 ```
 
@@ -246,11 +262,46 @@ grep review-squad ~/.claude/settings.json  # Should match
 mkdir -p ~/.claude/agents
 ```
 
-### Step 2: Create all 6 agent files
+### Step 2: Remove old monolithic agent files (upgrading only)
 
-> **Scope warning:** This step contains all 6 agent definitions (~1100 lines total). Each agent is a self-contained file. You can copy them one at a time or use the [Quick Start](#quick-start) checklist to track progress.
+> **Skip this step if doing a fresh install.** If you previously installed V3.0 or earlier, you will have 6 monolithic agent files that conflict with the new mode-suffixed files. Both will be registered by Claude Code and the old monolithic agents will shadow the new ones at runtime.
 
-For each agent below, create the file at the indicated path. Copy the content between the markdown fences exactly.
+```bash
+# Remove old monolithic agents — safe to run even if they don't exist
+for name in father-christmas jared stevey-boy-choi pm-cory nando emily; do
+  rm -f ~/.claude/agents/${name}.md && echo "Removed ${name}.md" || echo "Not found: ${name}.md (OK)"
+done
+```
+
+Confirm removal:
+```bash
+# None of these should exist after cleanup
+ls ~/.claude/agents/father-christmas.md 2>/dev/null && echo "WARNING: still present" || echo "OK"
+ls ~/.claude/agents/jared.md 2>/dev/null && echo "WARNING: still present" || echo "OK"
+ls ~/.claude/agents/stevey-boy-choi.md 2>/dev/null && echo "WARNING: still present" || echo "OK"
+ls ~/.claude/agents/pm-cory.md 2>/dev/null && echo "WARNING: still present" || echo "OK"
+ls ~/.claude/agents/nando.md 2>/dev/null && echo "WARNING: still present" || echo "OK"
+ls ~/.claude/agents/emily.md 2>/dev/null && echo "WARNING: still present" || echo "OK"
+```
+
+---
+
+### Step 3: Create all 25 mode-suffixed agent files
+
+> **Scope note:** V3.1 uses 25 mode-specific files instead of 6 monolithic ones. Each file contains only the definition for one agent in one mode (~63–76% smaller per file). Copy agent files from the repo's `agents/` directory to `~/.claude/agents/`.
+
+If you have the repo cloned locally, you can bulk-copy instead of copying each file manually:
+
+```bash
+# Bulk copy from repo (adjust REPO_PATH to your clone location)
+REPO_PATH="$HOME/Claude/SubAgents"
+cp "$REPO_PATH"/agents/{emily,father-christmas,jared,nando,pm-cory,stevey-boy-choi}-*.md ~/.claude/agents/
+
+# Verify count — should print 25
+ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
+```
+
+Or create files individually at the indicated paths. Copy the content between the markdown fences exactly.
 
 > **Note on agent tools:** Agent frontmatter lists `tools:` that the agent itself needs (Read, Write, Edit, Bash, Grep, Glob). No agent lists `Agent` as a tool because agents do not spawn sub-agents -- the `/consult`, `/implement`, and `/review` command orchestrators are responsible for spawning agents via the Agent tool.
 
@@ -3074,15 +3125,23 @@ Create file `MEMORY.md` in the memory directory:
 Run these checks to confirm everything is in place:
 
 ```bash
-# Check agent files (should list 6 files)
-ls -la ~/.claude/agents/father-christmas.md
-ls -la ~/.claude/agents/jared.md
-ls -la ~/.claude/agents/stevey-boy-choi.md
-ls -la ~/.claude/agents/pm-cory.md
-ls -la ~/.claude/agents/nando.md
-ls -la ~/.claude/agents/emily.md
+# 1. Confirm old monolithic files are gone (should all print "OK")
+for name in father-christmas jared stevey-boy-choi pm-cory nando emily; do
+  ls ~/.claude/agents/${name}.md 2>/dev/null && echo "WARNING: ${name}.md still present — remove it" || echo "OK: ${name}.md absent"
+done
 
-# Check command files (should list 6 + 1 GSD)
+# 2. Confirm all 25 mode-suffixed files are present (should print 25)
+ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
+
+# 3. Spot-check a few key agents
+ls -la ~/.claude/agents/jared-review.md
+ls -la ~/.claude/agents/nando-implement.md
+ls -la ~/.claude/agents/emily-discuss.md
+ls -la ~/.claude/agents/father-christmas-consult.md
+ls -la ~/.claude/agents/pm-cory-early.md
+ls -la ~/.claude/agents/stevey-boy-choi-review.md
+
+# 4. Check command files (should list 6 + 1 GSD)
 ls -la ~/.claude/commands/discuss.md
 ls -la ~/.claude/commands/research.md
 ls -la ~/.claude/commands/plan.md
@@ -3091,17 +3150,19 @@ ls -la ~/.claude/commands/implement.md
 ls -la ~/.claude/commands/review.md
 ls -la ~/.claude/commands/gsd/review.md
 
-# Check hook (should exist and be executable)
+# 5. Check hook (should exist and be executable)
 ls -la ~/.claude/hooks/review-squad-gate.js
 
-# Check settings.json has the hook registered (should match)
+# 6. Check settings.json has the hook registered (should match)
 grep review-squad-gate ~/.claude/settings.json
 
-# Check memory files exist (adjust path for your project)
+# 7. Check memory files exist (adjust path for your project)
 PROJECT_PATH=$(pwd)
 ENCODED_PATH=$(echo "$PROJECT_PATH" | sed 's|/|-|g')
 ls -la "$HOME/.claude/projects/${ENCODED_PATH}/memory/"
 ```
+
+> **Important:** After any agent file changes, exit Claude Code completely and restart before testing. The agent registry is built at process start — new/removed files are not picked up mid-session.
 
 ### Step 8: Test with example commands
 
@@ -3322,9 +3383,11 @@ The Review Squad uses two separate memory systems that serve different purposes:
 
 ### Agents not found
 
-1. **Verify agent files exist:** `ls ~/.claude/agents/*.md` should list all 5.
-2. **Check the agent name matches:** The `name:` in the frontmatter must match exactly what commands reference (e.g., `father-christmas`, not `bbc`).
-3. **Global vs local agents:** Agent files at `~/.claude/agents/` are available globally. You can also place them at `<project>/.claude/agents/` for project-local agents.
+1. **Verify agent files exist:** `ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l` should print `25`.
+2. **Remove old monolithic files:** If the old `father-christmas.md`, `jared.md`, etc. are still present, they shadow the mode-suffixed agents. Run the cleanup loop from Step 2.
+3. **Restart Claude Code:** The agent registry builds at process start. File changes made mid-session are not detected — always restart after installing or removing agent files.
+4. **Check the agent name matches:** The `name:` in frontmatter must match the filename exactly (e.g., `jared-review` in the file at `jared-review.md`).
+5. **Global vs local agents:** Agent files at `~/.claude/agents/` are available globally. You can also place them at `<project>/.claude/agents/` for project-local agents.
 
 ### Memory directory not found
 
