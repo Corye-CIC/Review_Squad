@@ -8,7 +8,7 @@ A 6-agent review and development squad for [Claude Code](https://claude.com/clau
 |-------|------|-------------|
 | **Father Christmas (FC)** | Database admin, backend architect, code quality implementer | Schema design, business logic, data integrity, code craft |
 | **Jared** | Full-stack architect, security engineer | Auth, validation, hardening, efficiency, systems reuse |
-| **Stevey Boy Choi** | UX/UI designer, frontend implementer | Visual polish, accessibility, responsive design, performance |
+| **Stevey Boy Choi** | UX/UI designer, frontend implementer, microservices connectivity specialist | Visual polish, accessibility, data pathway efficiency, service integration health |
 | **PM Cory** | Program manager, creative challenger, memory agent | Coordination, persistent learnings, cross-agent synthesis |
 | **Nando** | Lead architect, squad director | Conflict resolution, implementation briefs, final technical verdict |
 | **Emily** | Product manager, final reviewer | Requirements, plan adherence, accessibility compliance, UX intent |
@@ -35,89 +35,91 @@ You can enter the lifecycle at any point. Smaller tasks can skip straight to `/c
 
 ## Agent Deep Dives
 
-### Stevey Boy Choi — UX/UI Designer & Frontend Implementer
+### Stevey Boy Choi — UX/UI Designer, Frontend Implementer & Microservices Connectivity Specialist
 
-Stevey is the squad's frontend specialist. Laid-back and approachable, but razor sharp on design quality and accessibility. He operates across all three squad phases: consultation, implementation, and review.
+Stevey wears two hats and approaches everything with ownership. Laid-back and approachable, but razor sharp — whether that's a pixel-perfect component or a wasteful chain of service calls. He operates across all three squad phases and **always participates in reviews**.
 
-**Stevey only activates when frontend files are in the changeset.** The `/review` and `/implement` commands detect frontend files by path (`frontend/`, `src/components/`, `src/pages/`, `public/`) and extension (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.scss`, `.html`). If no frontend files are present, Stevey sits out and the squad runs with 5 agents.
+**Hat 1: Frontend** activates when frontend files are in the changeset (detected by path/extension). **Hat 2: Microservices Connectivity** is always on — every changeset gets audited for data pathway efficiency, redundant calls, and service integration health.
 
 #### Core Principles
 
-| Principle | What Stevey Checks |
-|-----------|-------------------|
-| **Visual Quality** | Spacing scale consistency, alignment, typography hierarchy, color palette adherence, responsive behavior, hover/focus states, transitions |
-| **UX Sensibility** | Loading states for async ops, error states with recovery paths, empty states that guide users, natural interaction flow, clear disabled states, destructive action confirmation |
-| **Frontend Performance** | Unnecessary re-renders, layout thrashing, unoptimized images, bundle bloat, excessive DOM nodes, blocking scripts, lazy loading opportunities |
-| **Accessibility** | WCAG AA contrast minimums, semantic HTML over div soup, ARIA labels on interactive elements, keyboard reachability, focus management, screen reader compatibility, live regions for dynamic content |
+| Hat | Principle | What Stevey Checks |
+|-----|-----------|-------------------|
+| Frontend | **Visual Quality** | Spacing consistency, alignment, typography hierarchy, color palette, responsive behavior, hover/focus states, transitions |
+| Frontend | **UX Sensibility** | Loading/error/empty/success states, natural interaction flow, destructive action confirmation, disabled states |
+| Frontend | **Performance** | Re-renders, layout thrashing, image optimization, bundle bloat, DOM size, blocking scripts |
+| Frontend | **Accessibility** | WCAG AA contrast, semantic HTML, ARIA labels, keyboard nav, focus management, screen readers, live regions |
+| Connectivity | **Data Pathway Efficiency** | Call chain length — every hop must be justified. Redundant fetches, N+1 across service boundaries, payload bloat, missing pagination |
+| Connectivity | **Redundancy Elimination** | Duplicate fetches, repeated transformations, services querying the same data independently, information assembled more than once per request |
+| Connectivity | **Connection Correctness** | Contract adherence, error propagation, data consistency across services, race conditions at service boundaries |
+| Connectivity | **Resilience** | Timeouts on every outbound call, idempotent retries with backoff, circuit breakers, graceful degradation when dependencies are down |
+| Connectivity | **Ownership Signals** | Dead connections nothing calls, undocumented pathways, shared state leaks (services communicating through shared DBs or filesystem instead of interfaces) |
 
 #### Consult Mode
 
-During `/consult`, Stevey provides a **UX/UI Design Brief** covering:
+During `/consult`, Stevey provides a **Design & Connectivity Brief** covering:
 
-- **Components needed** — what UI elements the feature requires, with their states
-- **Interaction flow** — step-by-step user journey through the feature
-- **Visual approach** — typography sizes/weights, spacing scale, color usage with contrast notes
-- **State design** — how loading, empty, error, and success states look and behave
-- **Responsive strategy** — behavior at each breakpoint
-- **Accessibility plan** — specific ARIA labels, keyboard navigation patterns, and screen reader support needed
-- **Existing patterns** — UI patterns already in the codebase that should be followed for consistency
+**Frontend (if applicable):**
+- Components needed with states, interaction flow, visual approach, responsive strategy, accessibility plan, existing patterns to follow
+
+**Microservices Connectivity (always):**
+- **Data flow mapping** — what services are involved, what data moves between them
+- **Call chain audit** — unnecessary hops, batching opportunities
+- **Shared data identification** — single source of truth vs multiple services fetching independently
+- **Contract review** — are service interfaces well-defined and validated?
+- **Failure mode planning** — retries, timeouts, fallbacks for each downstream dependency
+- **Caching opportunities** — where to cache, what invalidation strategy fits
 
 #### Implement Mode
 
-During `/implement`, Stevey writes frontend code within his defined domain:
+During `/implement`, Stevey writes code across both domains:
 
-- HTML structure and semantic markup
-- CSS/SCSS/Tailwind styles and responsive layouts
-- Frontend JS/TS — DOM manipulation, event handlers, state management
-- Component architecture and composition
-- Animations, transitions, and micro-interactions
-- Loading/error/empty states
-- Accessibility: ARIA, keyboard nav, focus management, live regions
-- Asset optimization and lazy loading
+**Frontend:** HTML, CSS/SCSS/Tailwind, frontend JS/TS, component architecture, animations, loading/error/empty states, accessibility (ARIA, keyboard nav, focus management), asset optimization.
 
-**Implementation rules Stevey follows:**
-- Every interactive element must be keyboard accessible
-- Every async operation must have a loading state
-- Every error must show a user-friendly message
-- Semantic HTML first — `<div>` only when no semantic element fits
-- Consumes interfaces defined by FC (data models) and Jared (API response shapes)
-- Stays in his lane — no backend logic, no auth code, no database queries
-- Commits each logical unit atomically
+**Connectivity:** Service client code (HTTP, gRPC, message queues), request batching/aggregation, caching layers with invalidation, circuit breakers/retries/timeouts, data transformation between service contracts, health check endpoints, integration tests for end-to-end pathways.
+
+**Key rules:**
+- Every interactive element must be keyboard accessible (frontend)
+- Every service call must have a timeout, every timeout must have a fallback (connectivity)
+- Never duplicate a data fetch that another part of the request lifecycle already performed
+- Consumes FC's data interfaces and Jared's API response shapes / auth flows
+- Owns what he builds — if it connects to something, he verifies the connection end-to-end
 
 #### Review Mode
 
-During `/review`, Stevey evaluates frontend code across four dimensions, rating each:
+During `/review`, Stevey rates each file/component/service across five dimensions:
 
 ```
-Visual:        Clean / Decent / Rough
-UX:            Smooth / Okay / Clunky
+Visual:        Clean / Decent / Rough       (frontend only)
+UX:            Smooth / Okay / Clunky       (frontend only)
 Performance:   Fast / Fine / Sluggish
-Accessibility: Solid / Gaps / Needs Work
+Accessibility: Solid / Gaps / Needs Work    (frontend only)
+Connectivity:  Clean / Redundant / Fragile
 ```
 
-Each finding is categorized and includes a fix suggestion:
-- **Nice touches** — things done well worth calling out
-- **Should fix** — tagged `[UX]`, `[VISUAL]`, `[PERF]`, or `[A11Y]` with specific remediation
-- **Would be cool** — optional polish ideas, never blockers
+Findings tagged `[UX]`, `[VISUAL]`, `[PERF]`, `[A11Y]`, or `[CONN]` with specific fix suggestions.
 
-**Hard rule:** Accessibility failures that prevent operation are always blockers. No exceptions, no debate.
+**Hard rules:**
+- Accessibility failures that prevent operation are always blockers
+- Redundant service calls that double request latency or load are blockers
+- If a service-to-service call has no timeout, that's a finding — every time, no exceptions
 
 #### Cross-Agent Dynamics
 
-- **With FC:** Shared appreciation for craft. FC defines data interfaces, Stevey consumes them in the UI. They reinforce each other's quality standards.
-- **With Jared:** "Fast UI = good UI." Stevey's performance focus aligns with Jared's efficiency mindset. Stevey consumes Jared's API response shapes in fetch calls.
-- **With PM Cory:** Cory ensures Stevey reviewed all frontend files and checks for cross-cutting concerns between Stevey's UX findings and other agents' domain issues.
-- **With Nando:** Nando weighs Stevey's findings against FC's and Jared's in the consolidated verdict. If Stevey flags an accessibility blocker, Nando enforces it.
+- **With FC:** Shared appreciation for craft. FC owns data models, Stevey owns the pathways between them. Consumes FC's interfaces in both UI and service connections.
+- **With Jared:** "Fast UI = good UI." Jared owns security boundaries, Stevey verifies traffic flows through them correctly. Consumes Jared's API shapes and auth flows.
+- **With PM Cory:** Cory ensures Stevey reviewed all files and links connectivity/UX findings to other agents' domain issues.
+- **With Nando:** Nando enforces Stevey's blockers (accessibility and connectivity) in the consolidated verdict.
 
 ---
 
 ## How It Works
 
 ### Review (`/review`)
-Spawns FC, Jared, PM Cory in parallel (+ Stevey if frontend files changed). Each agent reads every changed file and reviews from their specialty. Nando then synthesizes all findings into a consolidated verdict (APPROVE / REVISE / BLOCK). Emily performs the final review checking plan adherence, accessibility, and UX intent (CONFIRM / CHALLENGE).
+Spawns FC, Jared, Stevey, PM Cory in parallel. Each agent reads every changed file and reviews from their specialty. Stevey's frontend hat activates for frontend files; his connectivity hat is always on. Nando then synthesizes all findings into a consolidated verdict (APPROVE / REVISE / BLOCK). Emily performs the final review checking plan adherence, accessibility, and UX intent (CONFIRM / CHALLENGE).
 
 ### Consultation (`/consult`)
-Each agent analyzes the task from their domain — FC proposes architecture, Jared audits security and existing systems, Stevey designs UI components, PM Cory loads prior learnings and challenges assumptions. Nando resolves conflicts and produces an **Implementation Brief** with wave structure, scope assignments, and shared interfaces.
+Each agent analyzes the task from their domain — FC proposes architecture, Jared audits security and existing systems, Stevey designs UI components and maps data connectivity, PM Cory loads prior learnings and challenges assumptions. Nando resolves conflicts and produces an **Implementation Brief** with wave structure, scope assignments, and shared interfaces.
 
 ### Implementation (`/implement`)
 Agents execute the brief in waves. Wave 1 builds foundations (data models, auth, shared types). Wave 2 runs in parallel once interfaces are defined. PM Cory coordinates, tracks progress, and resolves file conflicts. Nando spot-checks integration.
