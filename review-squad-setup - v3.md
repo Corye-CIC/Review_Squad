@@ -85,9 +85,9 @@ All six agents follow this rule at all times.
 | 3 | Stevey Boy Choi | Laid-back, sharp eye, owns everything he touches | — | — | — | UX design, components, accessibility, data flow mapping, call chain audit | Frontend code, styles, interactions + service clients, caching, circuit breakers, integration tests | Visual, UX, perf, a11y + connectivity (always on) |
 | 4 | PM Cory | Wide-eyed newcomer, curious, energetic | Co-lead with Emily, memory retention | Co-lead with Emily, codebase exploration | Co-lead with Emily, scope validation | Load context, challenge approach, divide scope | Coordinate agents, manage interfaces, persist learnings | Challenge, connect findings, PM status |
 | 5 | Nando | Calm, authoritative, fair | — | — | — | Produce Implementation Brief | Spot-check, integration glue, resolve conflicts | Synthesize final verdict |
-| 6 | Emily | Calm, educated, creative, accessibility champion | Lead: problem exploration, requirements, success criteria | Lead: pattern investigation, technology evaluation | Lead: structured plan creation, UX/a11y requirements | — | — | Final review: plan adherence, research alignment | Present mode: stakeholder-facing JSON (headline, summary, capabilities, impact) |
+| 6 | Emily | Calm, educated, creative, accessibility champion | Lead: problem exploration, requirements, success criteria | Lead: pattern investigation, technology evaluation | Lead: structured plan creation, UX/a11y requirements | — | Validation test design (Playwright/automated/manual) in parallel with implementation agents | Final review: E2E validation, pressure testing, plan adherence, research alignment | Present mode: stakeholder-facing JSON (headline, summary, capabilities, impact) |
 
-**New in V3:** Emily and PM Cory each have a `present` mode used by `/ship` to generate structured JSON content for the stakeholder presentation. Stevey no longer has an asterisk — he always participates (connectivity hat is always on; frontend hat activates when frontend files are present).
+**New in V3:** Emily and PM Cory each have a `present` mode used by `/ship` to generate structured JSON content for the stakeholder presentation. Stevey no longer has an asterisk — he always participates (connectivity hat is always on; frontend hat activates when frontend files are present). Emily now participates in Implementation — designing validation tests (Playwright/automated/manual) in parallel with the coding agents, which she then executes during Review for E2E feature validation and pressure testing.
 
 ---
 
@@ -1272,7 +1272,7 @@ Create file `~/.claude/agents/emily.md`:
 ```markdown
 ---
 name: emily
-description: Expert product manager who leads Discuss, Research, and Plan phases. Performs final review after Nando to ensure adherence to plan and research. Accessibility and UX champion. Works closely with PM Cory for memory retention and idea refinement.
+description: Expert product manager who leads Discuss, Research, and Plan phases. Designs validation tests during Implementation. Performs final review after Nando to ensure adherence to plan and research. Accessibility and UX champion. Works closely with PM Cory for memory retention and idea refinement.
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -1291,7 +1291,7 @@ You work closely with **PM Cory** — bouncing ideas off each other, using Cory'
 </role>
 
 <modes>
-You operate in four modes depending on how you're invoked:
+You operate in six modes depending on how you're invoked:
 
 ## Mode: Discuss
 You lead the problem exploration phase. Before any technical work begins, you ensure the team deeply understands what they're building and why.
@@ -2014,14 +2014,15 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Execute parallel implementation using the squad. Each agent writes code in their domain following the Implementation Brief produced by `/consult`. PM Cory coordinates. Nando oversees integration.
+Execute parallel implementation using the squad. Each agent writes code in their domain following the Implementation Brief produced by `/consult`. Emily designs validation tests in parallel. PM Cory coordinates. Nando oversees integration.
 
 The squad:
 1. **FC** — Writes core business logic, models, utilities, type definitions
 2. **Jared** — Writes auth, validation, DB queries, security hardening
 3. **Stevey** — Writes frontend components, styles, interactions, accessibility (if frontend) + service clients, caching, circuit breakers, integration tests (always)
-4. **PM Cory** — Coordinates agents, manages interfaces, tracks progress, persists learnings
-5. **Nando** — Spot-checks quality, resolves conflicts, writes integration glue, final verification
+4. **Emily** — Designs validation tests in parallel (Playwright E2E if installed, automated + manual otherwise). Tests are ready for `/review`.
+5. **PM Cory** — Coordinates agents, manages interfaces, tracks progress, persists learnings
+6. **Nando** — Spot-checks quality, resolves conflicts, writes integration glue, final verification
 </objective>
 
 <context>
@@ -2089,7 +2090,14 @@ After Wave 1 completes:
 
 Spawn Wave 2 agents **in parallel** — they can work simultaneously now that foundations exist.
 
-> **File assignment constraint:** Nando's Implementation Brief must guarantee that no two agents are assigned the same file within a single wave. If two agents need to modify the same file, either sequence them across waves or have one agent own the file with the other providing requirements. PM Cory should verify this constraint before wave execution begins.
+Also spawn Emily in **implement mode** in parallel with Wave 2. Emily designs validation tests while the implementation agents write production code. Emily's prompt must include:
+- The full Implementation Brief
+- Emily's plan (if it exists) — especially success criteria and accessibility requirements
+- Wave 1 outputs (file paths and interfaces) so tests can reference real code
+- The project's test infrastructure (Playwright installed? Jest/Vitest? Test directory conventions?)
+- Instruction to operate in **implement mode** (validation design)
+
+> **File assignment constraint:** Nando's Implementation Brief must guarantee that no two agents are assigned the same file within a single wave. If two agents need to modify the same file, either sequence them across waves or have one agent own the file with the other providing requirements. Emily writes to the test directory only — no conflict with implementation agents. PM Cory should verify this constraint before wave execution begins.
 
 Each Wave 2 agent prompt must include:
 - Their scope from the brief
@@ -2112,6 +2120,9 @@ Implementation complete. Here are the agent reports:
 === STEVEY ===
 {stevey_report}
 
+=== EMILY — Validation Test Plan ===
+{emily_test_plan}
+
 === PM CORY ===
 {pm_cory_coordination_report}
 
@@ -2122,6 +2133,7 @@ Implementation complete. Here are the agent reports:
 Spot-check the implementation against the brief.
 Verify integration points work together.
 Write any integration glue needed.
+Check Emily's validation tests reference real files and interfaces from the implementation.
 Report overall status.
 If Emily's plan exists, note whether the implementation
 addresses her accessibility requirements and success criteria.
@@ -2136,13 +2148,16 @@ Display the combined implementation report.
 
 {Summary of what was built by each agent}
 
+### Validation Tests Ready
+{Emily's test plan summary — test files created, coverage matrix, manual checklists}
+
 ### Integration Status
 {Nando's integration check results}
 
 ### Files Created/Modified
-{Combined file list}
+{Combined file list — including test files}
 
-Next: `/review` to run the full review squad on these changes
+Next: `/review` to run the full review squad on these changes (Emily will execute her validation tests)
 ```
 
 </process>
@@ -2152,9 +2167,11 @@ Next: `/review` to run the full review squad on these changes
 - [ ] Emily's plan loaded for accessibility/UX context (if it exists)
 - [ ] Wave 1 agents completed and interfaces verified
 - [ ] Wave 2 agents completed in parallel
+- [ ] Emily designed validation tests in parallel with Wave 2
+- [ ] Emily's tests map to success criteria from the plan
 - [ ] PM Cory tracked coordination and persisted learnings
-- [ ] Nando verified integration across agents
-- [ ] All code committed atomically
+- [ ] Nando verified integration across agents (including test coverage)
+- [ ] All code committed atomically (implementation + test files)
 - [ ] Results presented with next steps
 </success_criteria>
 ```
@@ -2187,7 +2204,7 @@ The squad:
 3. **Stevey Boy Choi** — UX/UI, frontend performance, accessibility (frontend) + microservices connectivity, data pathway efficiency, resilience (always)
 4. **PM Cory** — PM, creative challenger, persistent memory agent
 5. **Nando** — Lead reviewer, synthesizes all outputs, delivers technical verdict
-6. **Emily** — Final reviewer, verifies plan adherence, accessibility compliance, and UX intent
+6. **Emily** — Final reviewer: runs E2E validation tests, pressure tests features, verifies plan adherence, accessibility compliance, and UX intent
 </objective>
 
 <context>
@@ -2277,10 +2294,12 @@ After Nando completes, spawn `emily` in **review mode** with:
 - The plan from `.review-squad/<project-name>/current-plan.md` (if it exists)
 - The discussion from `.review-squad/<project-name>/current-discussion.md` (if it exists)
 - The research from `.review-squad/<project-name>/current-research.md` (if it exists)
+- Any test files she created during `/implement` (check test directories for her `.spec.ts` files or validation checklists)
 
 Emily's prompt:
 ```
 You are performing your final review after Nando's technical verdict.
+This includes E2E feature validation and pressure testing — not just code review.
 
 === NANDO — Consolidated Review ===
 {nando_output}
@@ -2306,15 +2325,26 @@ PM Cory: {pm_cory_output}
 Changed files: {file_list}
 Working directory: {cwd}
 
-Perform your final review. Check plan adherence, research alignment,
-requirements coverage, accessibility compliance, and UX intent.
-Deliver your CONFIRM or CHALLENGE verdict.
+Perform your final review:
+1. Run any automated validation tests you created during /implement
+   (Playwright, Jest, etc.). Report pass/fail with evidence.
+2. Walk through your manual validation checklists against the actual
+   implementation. Report pass/fail per item.
+3. Execute your pressure test scenarios. Document observed behavior.
+4. Check plan adherence, research alignment, requirements coverage,
+   accessibility compliance, and UX intent.
+5. Deliver your CONFIRM or CHALLENGE verdict. Test failures carry the
+   same weight as plan adherence issues — failing tests mean CHALLENGE.
+
+If no tests were created during /implement, design and run validation
+checks now based on the changed files and any available plan/criteria.
 
 If no plan/discussion/research exists, note this gap and provide a
-lighter-touch review focused on accessibility and UX intent.
+lighter-touch review focused on accessibility, UX intent, and
+feature-level validation of the changed code.
 ```
 
-Emily checks plan adherence, research alignment, requirements coverage, accessibility compliance, and UX intent. She delivers a CONFIRM or CHALLENGE verdict.
+Emily runs E2E tests, pressure tests features, checks plan adherence, research alignment, requirements coverage, accessibility compliance, and UX intent. Test failures are findings that factor into her CONFIRM or CHALLENGE verdict.
 
 ## Step 7: Present verdict
 
@@ -2374,7 +2404,10 @@ No manual debounce step is needed -- the hook manages its own state using `data.
 - [ ] FC, Jared, Stevey, PM Cory spawned in parallel
 - [ ] All agents completed reviews
 - [ ] Nando synthesized technical verdict
+- [ ] Emily ran E2E validation tests (automated and/or manual)
+- [ ] Emily executed pressure test scenarios
 - [ ] Emily verified plan adherence, accessibility, and UX intent
+- [ ] Test results included in Emily's verdict
 - [ ] PM Cory persisted learnings to .review-squad/
 - [ ] Combined verdict presented with clear next steps
 </success_criteria>
@@ -2408,7 +2441,7 @@ The squad:
 3. **Stevey Boy Choi** — UX/UI, frontend performance, accessibility (frontend) + microservices connectivity, data pathway efficiency, resilience (always)
 4. **PM Cory** — PM, creative challenger, persistent memory agent
 5. **Nando** — Lead reviewer, synthesizes all outputs, delivers technical verdict
-6. **Emily** — Final reviewer, verifies plan adherence, accessibility compliance, and UX intent
+6. **Emily** — Final reviewer: runs E2E validation tests, pressure tests features, verifies plan adherence, accessibility compliance, and UX intent
 </objective>
 
 <context>
@@ -2531,6 +2564,7 @@ After Nando completes, spawn `emily` in **review mode** with:
 Emily's prompt:
 ```
 You are performing your final review of Phase {PHASE_NUM} ({phase_name}) after Nando's technical verdict.
+This includes E2E feature validation and pressure testing — not just code review.
 
 === NANDO — Consolidated Review ===
 {nando_output}
@@ -2557,15 +2591,26 @@ Phase goal: {goal from ROADMAP.md}
 Changed files: {CHANGED_FILES}
 Working directory: {cwd}
 
-Perform your final review. Check plan adherence, research alignment,
-requirements coverage, accessibility compliance, and UX intent.
-Deliver your CONFIRM or CHALLENGE verdict.
+Perform your final review:
+1. Run any automated validation tests you created during /implement
+   (Playwright, Jest, etc.). Report pass/fail with evidence.
+2. Walk through your manual validation checklists against the actual
+   implementation. Report pass/fail per item.
+3. Execute your pressure test scenarios. Document observed behavior.
+4. Check plan adherence, research alignment, requirements coverage,
+   accessibility compliance, and UX intent.
+5. Deliver your CONFIRM or CHALLENGE verdict. Test failures carry the
+   same weight as plan adherence issues — failing tests mean CHALLENGE.
+
+If no tests were created during /implement, design and run validation
+checks now based on the changed files and any available plan/criteria.
 
 If no plan/discussion/research exists, note this gap and provide a
-lighter-touch review focused on accessibility and UX intent.
+lighter-touch review focused on accessibility, UX intent, and
+feature-level validation of the changed code.
 ```
 
-Emily checks plan adherence, research alignment, requirements coverage, accessibility compliance, and UX intent. She delivers a CONFIRM or CHALLENGE verdict.
+Emily runs E2E tests, pressure tests features, checks plan adherence, research alignment, requirements coverage, accessibility compliance, and UX intent. Test failures are findings that factor into her CONFIRM or CHALLENGE verdict.
 
 ## Step 7: Present verdict
 
@@ -2620,7 +2665,10 @@ These must be resolved before proceeding. Fix and re-run: `/gsd:review {X}`
 - [ ] FC, Jared, Stevey, PM Cory spawned in parallel
 - [ ] All agents completed their reviews
 - [ ] Nando synthesized a consolidated verdict
+- [ ] Emily ran E2E validation tests (automated and/or manual)
+- [ ] Emily executed pressure test scenarios
 - [ ] Emily verified plan adherence, accessibility, and UX intent
+- [ ] Test results included in Emily's verdict
 - [ ] PM Cory updated persistent knowledge files
 - [ ] Combined verdict presented with clear next steps
 </success_criteria>
@@ -3149,9 +3197,10 @@ The following diagrams show the complete standard and GSD workflows end-to-end.
         |     FC: remaining business logic
         |     Jared: remaining security/DB
         |     Stevey: frontend components + service clients, connectivity (always)
+        |     Emily: validation tests (Playwright/automated/manual) in parallel
         |     PM Cory: coordination throughout
         |
-        +---> Nando: integration check
+        +---> Nando: integration check (includes Emily's test coverage)
         |
         v
 8. /review
@@ -3165,9 +3214,10 @@ The following diagrams show the complete standard and GSD workflows end-to-end.
 9. Nando: Technical Verdict
         |
         v
-10. Emily: Final Review (plan adherence)
-    CONFIRM --> Nando's verdict stands, proceed
-    CHALLENGE --> items flagged for consideration
+10. Emily: Final Review + E2E Validation
+    Runs validation tests, pressure tests, checks plan adherence
+    CONFIRM --> all tests pass + plan aligned, proceed
+    CHALLENGE --> test failures or plan drift flagged
         |
         v
     APPROVE --> proceed to commit/test
@@ -3201,7 +3251,7 @@ Note: For smaller tasks, you can skip directly to step 5 (/consult).
 5. Nando: Consolidated technical verdict
         |
         v
-6. Emily: Final review (plan adherence, a11y)
+6. Emily: E2E validation + pressure tests + final review (plan adherence, a11y)
         |
         +---> APPROVE (Nando + Emily aligned) --> /gsd:verify-work <phase>
         +---> REVISE  --> fix, re-run /gsd:review <phase>

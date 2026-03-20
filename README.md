@@ -11,7 +11,7 @@ A 6-agent review and development squad for [Claude Code](https://claude.com/clau
 | **Stevey Boy Choi** | UX/UI designer, frontend implementer, microservices connectivity specialist | Visual polish, accessibility, data pathway efficiency, service integration health |
 | **PM Cory** | Program manager, creative challenger, memory agent | Coordination, persistent learnings, cross-agent synthesis |
 | **Nando** | Lead architect, squad director | Conflict resolution, implementation briefs, final technical verdict |
-| **Emily** | Product manager, final reviewer | Requirements, plan adherence, accessibility compliance, UX intent |
+| **Emily** | Product manager, validation test designer, final reviewer | Requirements, plan adherence, E2E validation tests, pressure testing, accessibility compliance, UX intent |
 
 ## Lifecycle Commands
 
@@ -27,7 +27,7 @@ The squad operates across 7 commands that form a complete development lifecycle:
 | `/research` | Investigate patterns, technology options, prior art | Emily (leads), PM Cory |
 | `/plan` | Create a structured implementation plan | Emily (leads), PM Cory |
 | `/consult` | Design the approach — architecture, interfaces, scope division | FC, Jared, Stevey, PM Cory, Nando |
-| `/implement` | Parallel domain-specific coding guided by the Implementation Brief | FC, Jared, Stevey, PM Cory, Nando |
+| `/implement` | Parallel domain-specific coding guided by the Implementation Brief | FC, Jared, Stevey, Emily, PM Cory, Nando |
 | `/review` | Post-implementation code review across all specialties | All 6 agents |
 | `/ship` | Generate presentation, create PR, monitor CI, auto-fix failures | Emily, PM Cory, Nando |
 
@@ -212,14 +212,15 @@ Not every task needs all 7 phases. Here's how to shortcut efficiently:
 **The squad does:**
 - **Wave 1** runs first (foundations — data models, auth, shared types). Typically FC and Jared.
 - **Wave 2** runs in parallel after Wave 1 interfaces are verified. All assigned agents.
+- **Emily** designs validation tests in parallel with Wave 2 — Playwright E2E tests if installed, automated + manual test checklists otherwise. Tests map to every success criterion from the plan.
 - **PM Cory** coordinates, manages interfaces between agents, resolves file conflicts.
-- **Nando** spot-checks integration after all waves complete.
+- **Nando** spot-checks integration after all waves complete, including verifying Emily's tests reference real implementation.
 
-**You get:** Working code committed atomically by each agent, plus an integration report.
+**You get:** Working code committed atomically by each agent, validation tests ready for `/review`, plus an integration report.
 
-**Tip:** The brief guarantees no two agents touch the same file in the same wave. If you see a conflict, it's a brief problem — fix the brief and re-run.
+**Tip:** The brief guarantees no two agents touch the same file in the same wave. Emily writes only to the test directory — no conflict with implementation agents.
 
-#### `/review` — 6-Agent Code Review
+#### `/review` — 6-Agent Code Review + E2E Feature Validation
 **You provide:** File paths, a git ref, or nothing (reviews all uncommitted changes).
 **The squad does:**
 - **FC** reviews for code quality, design, patterns
@@ -227,9 +228,9 @@ Not every task needs all 7 phases. Here's how to shortcut efficiently:
 - **Stevey** reviews for frontend quality (if applicable) AND microservice connectivity (always)
 - **PM Cory** loads context, challenges assumptions, cross-links findings, persists learnings
 - **Nando** synthesizes all findings → **APPROVE / REVISE / BLOCK**
-- **Emily** checks plan adherence, accessibility, UX intent → **CONFIRM / CHALLENGE**
+- **Emily** runs E2E validation tests (Playwright/automated + manual checklists), executes pressure test scenarios, checks plan adherence, accessibility, UX intent → **CONFIRM / CHALLENGE**. Test failures carry the same weight as plan adherence issues.
 
-**You get:** A consolidated verdict with required changes (if any). Fix and re-run `/review` until APPROVE + CONFIRM.
+**You get:** A consolidated verdict with required changes (if any), plus E2E test results with pass/fail evidence per feature. Fix and re-run `/review` until APPROVE + CONFIRM.
 
 **Tip:** The hook auto-suggests `/review` at natural wrap-up points (commit, test run, 5+ files edited). You don't have to remember to run it.
 

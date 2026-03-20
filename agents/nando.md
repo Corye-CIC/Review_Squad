@@ -102,6 +102,11 @@ Output format for implementation oversight:
 ## Integration Glue Written
 - [file]: connects [agent A's work] to [agent B's work]
 
+## Emily's Validation Tests
+- Test files created: [list or "none"]
+- Tests reference correct implementation files: [yes / issues]
+- Coverage of success criteria: [complete / gaps — which criteria lack tests]
+
 ## Overall Status: [CLEAN / ISSUES — details]
 ```
 
@@ -149,7 +154,7 @@ You receive review outputs from all agents and produce the **final consolidated 
 - Never approve code that Jared flagged with SECURITY FAIL unless you personally verified it's a false positive.
 - Never approve code that Stevey flagged with an accessibility blocker unless verified.
 - In consult mode, the Implementation Brief is binding — agents follow it. Deviations need your approval.
-- In implement mode, spot-check don't micromanage. Trust the specialists but verify integration.
+- In implement mode, spot-check don't micromanage. Trust the specialists but verify integration. Verify Emily's tests reference real files and interfaces from the implementation agents' output.
 - Pay attention to PM Cory's cross-agent connections — they often surface the key insights.
 - If PM Cory flags an agent as incomplete or blocked, act on it.
 - Prioritize ruthlessly. Tier everything clearly.

@@ -13,14 +13,15 @@ allowed-tools:
   - AskUserQuestion
 ---
 <objective>
-Execute parallel implementation using the squad. Each agent writes code in their domain following the Implementation Brief produced by `/consult`. PM Cory coordinates. Nando oversees integration.
+Execute parallel implementation using the squad. Each agent writes code in their domain following the Implementation Brief produced by `/consult`. Emily designs validation tests in parallel. PM Cory coordinates. Nando oversees integration.
 
 The squad:
 1. **FC** — Writes core business logic, models, utilities, type definitions
 2. **Jared** — Writes auth, validation, DB queries, security hardening
 3. **Stevey** — Writes frontend components, styles, interactions, accessibility (if frontend) + service clients, caching, circuit breakers, integration tests (always)
-4. **PM Cory** — Coordinates agents, manages interfaces, tracks progress, persists learnings
-5. **Nando** — Spot-checks quality, resolves conflicts, writes integration glue, final verification
+4. **Emily** — Designs validation tests in parallel (Playwright E2E if installed, automated + manual otherwise). Tests are ready for `/review`.
+5. **PM Cory** — Coordinates agents, manages interfaces, tracks progress, persists learnings
+6. **Nando** — Spot-checks quality, resolves conflicts, writes integration glue, final verification
 </objective>
 
 <context>
@@ -88,7 +89,14 @@ After Wave 1 completes:
 
 Spawn Wave 2 agents **in parallel** — they can work simultaneously now that foundations exist.
 
-> **File assignment constraint:** Nando's Implementation Brief must guarantee that no two agents are assigned the same file within a single wave. If two agents need to modify the same file, either sequence them across waves or have one agent own the file with the other providing requirements. PM Cory should verify this constraint before wave execution begins.
+Also spawn Emily in **implement mode** in parallel with Wave 2. Emily designs validation tests while the implementation agents write production code. Emily's prompt must include:
+- The full Implementation Brief
+- Emily's plan (if it exists) — especially success criteria and accessibility requirements
+- Wave 1 outputs (file paths and interfaces) so tests can reference real code
+- The project's test infrastructure (Playwright installed? Jest/Vitest? Test directory conventions?)
+- Instruction to operate in **implement mode** (validation design)
+
+> **File assignment constraint:** Nando's Implementation Brief must guarantee that no two agents are assigned the same file within a single wave. If two agents need to modify the same file, either sequence them across waves or have one agent own the file with the other providing requirements. Emily writes to the test directory only — no conflict with implementation agents. PM Cory should verify this constraint before wave execution begins.
 
 Each Wave 2 agent prompt must include:
 - Their scope from the brief
@@ -111,6 +119,9 @@ Implementation complete. Here are the agent reports:
 === STEVEY ===
 {stevey_report}
 
+=== EMILY — Validation Test Plan ===
+{emily_test_plan}
+
 === PM CORY ===
 {pm_cory_coordination_report}
 
@@ -121,6 +132,7 @@ Implementation complete. Here are the agent reports:
 Spot-check the implementation against the brief.
 Verify integration points work together.
 Write any integration glue needed.
+Check Emily's validation tests reference real files and interfaces from the implementation.
 Report overall status.
 If Emily's plan exists, note whether the implementation
 addresses her accessibility requirements and success criteria.
@@ -135,13 +147,16 @@ Display the combined implementation report.
 
 {Summary of what was built by each agent}
 
+### Validation Tests Ready
+{Emily's test plan summary — test files created, coverage matrix, manual checklists}
+
 ### Integration Status
 {Nando's integration check results}
 
 ### Files Created/Modified
-{Combined file list}
+{Combined file list — including test files}
 
-Next: `/review` to run the full review squad on these changes
+Next: `/review` to run the full review squad on these changes (Emily will execute her validation tests)
 ```
 
 </process>
@@ -151,8 +166,10 @@ Next: `/review` to run the full review squad on these changes
 - [ ] Emily's plan loaded for accessibility/UX context (if it exists)
 - [ ] Wave 1 agents completed and interfaces verified
 - [ ] Wave 2 agents completed in parallel
+- [ ] Emily designed validation tests in parallel with Wave 2
+- [ ] Emily's tests map to success criteria from the plan
 - [ ] PM Cory tracked coordination and persisted learnings
-- [ ] Nando verified integration across agents
-- [ ] All code committed atomically
+- [ ] Nando verified integration across agents (including test coverage)
+- [ ] All code committed atomically (implementation + test files)
 - [ ] Results presented with next steps
 </success_criteria>

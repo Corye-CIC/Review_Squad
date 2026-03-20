@@ -21,7 +21,7 @@ The squad:
 3. **Stevey Boy Choi** — UX/UI, frontend performance, accessibility + microservices data connectivity
 4. **PM Cory** — PM, creative challenger, persistent memory agent
 5. **Nando** — Lead reviewer, synthesizes all outputs, delivers technical verdict
-6. **Emily** — Final reviewer, verifies plan adherence, accessibility compliance, and UX intent
+6. **Emily** — Final reviewer: runs E2E validation tests, pressure tests features, verifies plan adherence, accessibility compliance, and UX intent
 </objective>
 
 <context>
@@ -113,10 +113,12 @@ After Nando completes, spawn `emily` in **review mode** with:
 - The plan from `.review-squad/<project-name>/current-plan.md` (if it exists)
 - The discussion from `.review-squad/<project-name>/current-discussion.md` (if it exists)
 - The research from `.review-squad/<project-name>/current-research.md` (if it exists)
+- Any test files she created during `/implement` (check test directories for her `.spec.ts` files or validation checklists)
 
 Emily's prompt:
 ```
 You are performing your final review after Nando's technical verdict.
+This includes E2E feature validation and pressure testing — not just code review.
 
 === NANDO — Consolidated Review ===
 {nando_output}
@@ -142,15 +144,26 @@ PM Cory: {pm_cory_output}
 Changed files: {file_list}
 Working directory: {cwd}
 
-Perform your final review. Check plan adherence, research alignment,
-requirements coverage, accessibility compliance, and UX intent.
-Deliver your CONFIRM or CHALLENGE verdict.
+Perform your final review:
+1. Run any automated validation tests you created during /implement
+   (Playwright, Jest, etc.). Report pass/fail with evidence.
+2. Walk through your manual validation checklists against the actual
+   implementation. Report pass/fail per item.
+3. Execute your pressure test scenarios. Document observed behavior.
+4. Check plan adherence, research alignment, requirements coverage,
+   accessibility compliance, and UX intent.
+5. Deliver your CONFIRM or CHALLENGE verdict. Test failures carry the
+   same weight as plan adherence issues — failing tests mean CHALLENGE.
+
+If no tests were created during /implement, design and run validation
+checks now based on the changed files and any available plan/criteria.
 
 If no plan/discussion/research exists, note this gap and provide a
-lighter-touch review focused on accessibility and UX intent.
+lighter-touch review focused on accessibility, UX intent, and
+feature-level validation of the changed code.
 ```
 
-Emily checks plan adherence, research alignment, requirements coverage, accessibility compliance, and UX intent. She delivers a CONFIRM or CHALLENGE verdict.
+Emily runs E2E tests, pressure tests features, checks plan adherence, research alignment, requirements coverage, accessibility compliance, and UX intent. Test failures are findings that factor into her CONFIRM or CHALLENGE verdict.
 
 ## Step 7: Present verdict
 
@@ -210,7 +223,10 @@ No manual debounce step is needed -- the hook manages its own state using `data.
 - [ ] FC, Jared, Stevey, PM Cory spawned in parallel
 - [ ] All agents completed reviews
 - [ ] Nando synthesized technical verdict
+- [ ] Emily ran E2E validation tests (automated and/or manual)
+- [ ] Emily executed pressure test scenarios
 - [ ] Emily verified plan adherence, accessibility, and UX intent
+- [ ] Test results included in Emily's verdict
 - [ ] PM Cory persisted learnings to .review-squad/
 - [ ] Combined verdict presented with clear next steps
 </success_criteria>
