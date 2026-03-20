@@ -282,7 +282,7 @@ process.stdin.on('end', () => {
         'Consider running the Review Squad before committing or testing. ' +
         'Ask the user: "Would you like to run the Review Squad on these changes before proceeding?" ' +
         'If declined, continue normally. Spawn agents: father-christmas, jared, ' +
-        'stevey-boy-choi (if frontend files changed), pm-cory in parallel, then nando to synthesize.';
+        'stevey-boy-choi, pm-cory in parallel, then nando to synthesize.';
     }
 
     process.stdout.write(JSON.stringify({

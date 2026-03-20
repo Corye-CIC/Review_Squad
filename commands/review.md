@@ -18,7 +18,7 @@ Run the 6-agent Review Squad on changed files. Works in any project — GSD or n
 The squad:
 1. **Father Christmas** — Code quality + novel approaches
 2. **Jared** — Security, efficiency, systems reuse
-3. **Stevey Boy Choi** — UX/UI, frontend performance, accessibility (frontend only)
+3. **Stevey Boy Choi** — UX/UI, frontend performance, accessibility + microservices data connectivity
 4. **PM Cory** — PM, creative challenger, persistent memory agent
 5. **Nando** — Lead reviewer, synthesizes all outputs, delivers technical verdict
 6. **Emily** — Final reviewer, verifies plan adherence, accessibility compliance, and UX intent
@@ -57,9 +57,11 @@ If no files found, tell the user and exit.
 ## Step 2: Classify files
 
 Separate into:
-- **Backend/general files** — reviewed by FC, Jared, PM Cory
-- **Frontend files** — also reviewed by Stevey Boy Choi
+- **Backend/general files** — reviewed by FC, Jared, PM Cory, Stevey (connectivity hat)
+- **Frontend files** — Stevey also applies frontend hat
   Frontend detection: files in `frontend/`, `src/components/`, `src/pages/`, `public/`, or with extensions `.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.scss`, `.html`
+
+Note: Stevey always participates. Frontend files activate his frontend hat. His connectivity hat (microservices data pathways, redundant calls, service integration) is always on.
 
 ## Step 3: Load PM Cory's persistent context
 
@@ -85,10 +87,8 @@ Spawn the following agents in parallel using the Agent tool:
 **Always spawn:**
 - `father-christmas` — with all changed files
 - `jared` — with all changed files
+- `stevey-boy-choi` — with all changed files (connectivity hat always on; if frontend files present, note which files activate his frontend hat too)
 - `pm-cory` — with all changed files + SQUAD_DIR path for persistent memory
-
-**If frontend files present:**
-- `stevey-boy-choi` — with frontend files (+ any shared utilities they import)
 
 Each agent prompt must include:
 - The complete list of files to review
@@ -124,7 +124,7 @@ You are performing your final review after Nando's technical verdict.
 === AGENT REVIEWS (for reference) ===
 FC: {bbc_output}
 Jared: {jared_output}
-Stevey: {stevey_output (if applicable)}
+Stevey: {stevey_output}
 PM Cory: {pm_cory_output}
 
 {If plan exists:}
@@ -207,7 +207,7 @@ No manual debounce step is needed -- the hook manages its own state using `data.
 
 <success_criteria>
 - [ ] Changed files identified from git or arguments
-- [ ] FC, Jared, PM Cory spawned in parallel (+ Stevey if frontend)
+- [ ] FC, Jared, Stevey, PM Cory spawned in parallel
 - [ ] All agents completed reviews
 - [ ] Nando synthesized technical verdict
 - [ ] Emily verified plan adherence, accessibility, and UX intent
