@@ -1,10 +1,16 @@
 # Review Squad -- Complete Setup Guide
 
-**Version:** 2.0
-**Last updated:** 2026-03-18
+**Version:** 3.0
+**Last updated:** 2026-03-20
 **Requires:** Node.js 18+, Claude Code CLI with Agent tool support
 
-Portable instructions for the 6-agent full-lifecycle development system. This document contains everything needed to set up the Review Squad on a new machine: agent definitions, slash commands, hooks, memory files, and workflow reference.
+Portable instructions for the 6-agent full-lifecycle development system. This document contains everything needed to set up the Review Squad on a new machine: agent definitions, slash commands (including `/ship`), hooks, memory files, and workflow reference.
+
+### What's New in V3
+- **`/ship` command** — Post-review shipping: generates stakeholder HTML presentation, creates PR, monitors CI, auto-fixes failures with agent-routed resolution (max 3 attempts). Emily and PM Cory gained `present` mode for content generation.
+- **Stevey Boy Choi expanded** — Now wears two hats: Frontend (conditional) + Microservices Connectivity (always on). Audits data pathways across services for efficiency, redundancy, and correctness. Always participates in reviews — no longer frontend-only.
+- **Review Squad Gate hook updated** — Now detects `pr-failure.md`, `pr-success.md`, and `pr-timeout.md` from the `/ship` async watcher. Added `successDetected` state flag. Stevey always included in advisory.
+- **HTML presentation template** — Self-contained dark theme, responsive, accessible (`<h2>` headings, `scope="col"` on tables), system font stack. Lives at `~/.claude/templates/ship-presentation.html`.
 
 ---
 
@@ -33,13 +39,14 @@ Portable instructions for the 6-agent full-lifecycle development system. This do
 
 ## Overview
 
-The Review Squad operates across six phases of development:
+The Review Squad operates across seven phases of development:
 - **Discuss** -- Explore the problem space, gather requirements, define success criteria
 - **Research** -- Investigate existing patterns, technology options, and prior art
 - **Plan** -- Create a structured implementation plan from discussion and research findings
 - **Consult** -- Design the technical approach before writing code
 - **Implement** -- Parallel domain-specific coding guided by an Implementation Brief
 - **Review** -- Multi-perspective code review before testing or committing (with final plan adherence check)
+- **Ship** -- Generate stakeholder presentation, create PR, monitor CI, auto-fix failures
 
 > **New here?** Jump to the [Quick Start](#quick-start) for a minimal setup checklist, then come back for the details.
 
@@ -75,10 +82,12 @@ All six agents follow this rule at all times.
 |---|-------|------------|---------|----------|------|---------|-----------|--------|
 | 1 | FC (Father Christmas) | Enthusiastic, exacting, backend-focused | — | — | — | DB admin, existing systems audit, patterns, interfaces | Database, core business logic, models, utilities | Quality, craft, DB correctness |
 | 2 | Jared | Blunt, honest, full-stack | — | — | — | Architecture proposal, security reqs, integration points | Auth, validation, hardening, full-stack glue | Security, efficiency, architecture |
-| 3 | Stevey Boy Choi | Laid-back, sharp eye, chill not soft | — | — | — | UX design, components, accessibility | Frontend code, styles, interactions | Visual, UX, perf, a11y |
+| 3 | Stevey Boy Choi | Laid-back, sharp eye, owns everything he touches | — | — | — | UX design, components, accessibility, data flow mapping, call chain audit | Frontend code, styles, interactions + service clients, caching, circuit breakers, integration tests | Visual, UX, perf, a11y + connectivity (always on) |
 | 4 | PM Cory | Wide-eyed newcomer, curious, energetic | Co-lead with Emily, memory retention | Co-lead with Emily, codebase exploration | Co-lead with Emily, scope validation | Load context, challenge approach, divide scope | Coordinate agents, manage interfaces, persist learnings | Challenge, connect findings, PM status |
 | 5 | Nando | Calm, authoritative, fair | — | — | — | Produce Implementation Brief | Spot-check, integration glue, resolve conflicts | Synthesize final verdict |
-| 6 | Emily | Calm, educated, creative, accessibility champion | Lead: problem exploration, requirements, success criteria | Lead: pattern investigation, technology evaluation | Lead: structured plan creation, UX/a11y requirements | — | — | Final review: plan adherence, research alignment |
+| 6 | Emily | Calm, educated, creative, accessibility champion | Lead: problem exploration, requirements, success criteria | Lead: pattern investigation, technology evaluation | Lead: structured plan creation, UX/a11y requirements | — | — | Final review: plan adherence, research alignment | Present mode: stakeholder-facing JSON (headline, summary, capabilities, impact) |
+
+**New in V3:** Emily and PM Cory each have a `present` mode used by `/ship` to generate structured JSON content for the stakeholder presentation. Stevey no longer has an asterisk — he always participates (connectivity hat is always on; frontend hat activates when frontend files are present).
 
 ---
 
