@@ -33,6 +33,9 @@ const DASH_PORT  = 4001;   // browser → server (dashboard HTTP + WS)
 const VALID_AGENTS = new Set(['emily', 'fc', 'jared', 'stevey', 'pm-cory', 'nando']);
 const VALID_LEVELS = new Set(['phase', 'decision', 'conversation']);
 
+const RATE_LIMIT_MAX       = 60;      // messages per window
+const RATE_LIMIT_WINDOW_MS = 10_000;  // 10 seconds
+
 // Message history kept in memory — last 500 messages.
 const MAX_HISTORY = 500;
 
@@ -110,13 +113,25 @@ const agentServer = http.createServer((_req, res) => {
 const wssAgents = new WebSocketServer({ server: agentServer });
 
 wssAgents.on('connection', (ws) => {
-  agentClients.set(ws, { agentId: null });
+  agentClients.set(ws, { agentId: null, msgCount: 0, windowStart: Date.now() });
   log('Agent client connected (unauthenticated)');
 
   ws.on('message', (raw) => {
     const text = raw.toString('utf8').trim();
     const state = agentClients.get(ws);
     if (!state) return;
+
+    // Rate limiting
+    const now = Date.now();
+    if (now - state.windowStart >= RATE_LIMIT_WINDOW_MS) {
+      state.msgCount = 0;
+      state.windowStart = now;
+    }
+    state.msgCount++;
+    if (state.msgCount > RATE_LIMIT_MAX) {
+      log(`Rate limit exceeded for ${state.agentId ?? 'unauthenticated'}`);
+      return;
+    }
 
     // -----------------------------------------------------------------------
     // Authentication: first message is the agentId
