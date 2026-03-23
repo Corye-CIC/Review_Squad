@@ -131,8 +131,7 @@ function broadcastLifecycle(
 ): void {
   const message = data ? `[lifecycle] ${event} — ${data}` : `[lifecycle] ${event}`;
 
-  const sender: AgentId = (VALID_AGENTS.find(id => id !== sourceAgent) ?? VALID_AGENTS[0]) as AgentId;
-  pool.send({ agent: sender, level: 'phase', message, timestamp: Date.now(), room });
+  pool.send({ agent: 'fc', level: 'phase', message, timestamp: Date.now(), room });
 }
 
 // ---------------------------------------------------------------------------
