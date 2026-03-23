@@ -74,6 +74,8 @@ Read each of these if present -- do not fail if missing:
 - `${SQUAD_DIR}/current-research.md`
 - `${SQUAD_DIR}/current-brief.md`
 
+Also check for `CONTEXT.md` in the working directory. If it exists, read it and pass to Emily and PM Cory — it provides service-specific context that improves presentation quality.
+
 ### 1e. Detect frontend files
 Check `git diff ${BASE_BRANCH} --name-only` for frontend files. Frontend detection (same as /review):
 files in `frontend/`, `src/components/`, `src/pages/`, `public/`, or with extensions `.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.scss`, `.html`.
@@ -680,6 +682,12 @@ PR diff context:
 Implementation brief:
 {brief_content}
 
+<file-scope>
+Fix ONLY the files that appear in the PR diff above. Do not glob, grep, or explore outside
+the changed files unless you have a specific unresolved import to trace. If you need an
+unlisted file, note it in your output — do not self-expand scope.
+</file-scope>
+
 Rules:
 - Fix ONLY the CI failure. Do not refactor or change unrelated code.
 - Commit the fix atomically with a clear message: "fix: {description of what was fixed}"
@@ -700,6 +708,12 @@ PR diff context:
 {If brief exists:}
 Implementation brief:
 {brief_content}
+
+<file-scope>
+Fix ONLY the files that appear in the PR diff above. Do not glob, grep, or explore outside
+the changed files unless you have a specific unresolved import to trace. If you need an
+unlisted file, note it in your output — do not self-expand scope.
+</file-scope>
 
 Rules:
 - Fix ONLY the CI failure. Do not refactor or change unrelated code.

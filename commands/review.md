@@ -79,9 +79,9 @@ RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 
 ## Step 4: Spawn reviewers in parallel
 
-Spawn the following agents in parallel using the Agent tool:
+**Thin-mode threshold:** If ≤ 2 files changed AND no frontend files, use thin mode — spawn only `jared-review` + `father-christmas-review`, then Nando. Skip Stevey and PM Cory. This avoids spawning 4+ agents for trivial changesets.
 
-**Always spawn:**
+**Full mode (> 2 files OR frontend files present):** Spawn all four in parallel:
 - `father-christmas-review` — with all changed files
 - `jared-review` — with all changed files
 - `stevey-boy-choi-review` — with all changed files (connectivity hat always on; if frontend files present, note which files activate his frontend hat too)
@@ -92,6 +92,17 @@ Each agent prompt must include:
 - Working directory path
 - Brief context on what the changes are for (from git log or user description)
 - Instruction to Read every file before reviewing
+- A `<file-scope>` block hard-constraining the agent to the changed files:
+
+```
+<file-scope>
+Review ONLY these files — do not glob, grep, or read files outside this list:
+- [changed file 1]
+- [changed file 2]
+- ...
+If context from an adjacent file is needed to understand a changed file, note the gap in your output rather than self-expanding scope.
+</file-scope>
+```
 
 ## Step 5: Spawn Nando
 

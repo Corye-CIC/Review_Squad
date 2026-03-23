@@ -1,7 +1,7 @@
 # Review Squad -- Complete Setup Guide
 
-**Version:** 3.0
-**Last updated:** 2026-03-20
+**Version:** 3.2
+**Last updated:** 2026-03-23
 **Requires:** Node.js 18+, Claude Code CLI with Agent tool support
 
 Portable instructions for the 6-agent full-lifecycle development system. This document contains everything needed to set up the Review Squad on a new machine: agent definitions, slash commands (including `/ship`), hooks, memory files, and workflow reference.
@@ -12,6 +12,15 @@ Portable instructions for the 6-agent full-lifecycle development system. This do
 - **Review Squad Gate hook updated** — Now detects `pr-failure.md`, `pr-success.md`, and `pr-timeout.md` from the `/ship` async watcher. Added `successDetected` state flag. Stevey always included in advisory.
 - **HTML presentation template** — Self-contained dark theme, responsive, accessible (`<h2>` headings, `scope="col"` on tables), system font stack. Lives at `~/.claude/templates/ship-presentation.html`.
 - **Mode-suffixed agents (V3.1)** — 6 monolithic agent files replaced by 25 mode-specific files (`{name}-{mode}.md`). Each file is ~63–76% smaller, loads only the mode it needs, and is registered by Claude Code independently. Setup now includes a cleanup step to remove old monolithic files.
+
+### What's New in V3.2
+- **`/audit` command** — Deep security, architecture, and systems audit using `jared-audit` + `father-christmas-audit` in parallel, synthesized by Nando. Run against the full codebase or a specific subsystem before major work to surface debt and security issues.
+- **Token reduction — file-scope targeting** — All implement, review, and consult agents now receive a `<file-scope>` block hard-constraining them to the files relevant to their assignment. Agents no longer glob/grep the full codebase.
+- **Token reduction — CONTEXT.md per service** — Each service can have a `CONTEXT.md` in its root. All commands (discuss, research, plan, consult, review, ship) load it and pass it to agents, replacing broad codebase exploration with focused service context.
+- **Token reduction — model downgrades** — `pm-cory-implement` (haiku), `emily-present` (haiku), `pm-cory-present` (haiku), `emily-implement` (sonnet). These agents produce structured output and don't require opus.
+- **Token reduction — review thin-mode** — `/review` with ≤ 2 files and no frontend files spawns only FC + Jared, skipping Stevey and PM Cory.
+- **Token reduction — PM Cory memory cap** — All PM Cory modes cap learnings reads to the last 20 lines of `learnings.jsonl` and last 3 entries of `review-history.md`.
+- **Boyscout Rule clarified** — Review and audit mode agents now **flag** Boyscout opportunities but do **not** modify code. Only implement mode agents fix. This prevents unintended writes during review passes.
 
 ---
 
@@ -60,19 +69,19 @@ This rule is **global** -- it applies to all projects, all agents, all phases.
 
 > Never treat anything as "pre-existing" or "out of scope" to fix. Leave every place better than you found it.
 
-**Definition:** If you encounter a bug, error, omission, or anything wrong while working -- flag it and fix it, regardless of whether it is related to the current task.
+**Definition:** If you encounter a bug, error, omission, or anything wrong while working -- flag it. In implement mode, also fix it. In review and audit modes, flag only -- do not modify code.
 
-**Why:** Problems must not accumulate or be swept under the rug. Deferring fixes as "out of scope" leads to compounding issues.
+**Why:** Problems must not accumulate or be swept under the rug. Deferring fixes as "out of scope" leads to compounding issues. The review/audit distinction matters: unexpected writes during a review pass cause confusion and break the separation between "understand what exists" and "change what exists."
 
-**How to apply:** During any work -- reading code, running tests, exploring files -- if you spot something broken, incorrect, or missing, call it out and fix it in the same session. Do not silently note it and move on.
+**How to apply:** During any work -- reading code, running tests, exploring files -- if you spot something broken, incorrect, or missing, call it out. If you are in implement mode, fix it in the same session. If you are in review or audit mode, document it as a Boyscout Fix in your output for the team to action separately.
 
-**Concrete example:** While implementing a new API endpoint, Jared notices that an existing middleware function in `auth.ts` silently swallows a JWT verification error and returns `undefined` instead of throwing. Even though the current task is unrelated to auth, Jared fixes the error handling and notes it as a Boyscout Fix in his implementation report.
+**Concrete example:** While implementing a new API endpoint, Jared notices that an existing middleware function in `auth.ts` silently swallows a JWT verification error and returns `undefined` instead of throwing. Even though the current task is unrelated to auth, Jared fixes the error handling and notes it as a Boyscout Fix in his implementation report. If Jared were in *review* mode instead, he would flag the issue in his review output but not modify the file.
 
 **When it applies:**
 - During **discuss/research/plan** -- if Emily or Cory discover existing issues while exploring the codebase, they flag them
 - During **consult** -- if agents discover existing issues while analyzing the codebase, they flag them
-- During **implement** -- if agents encounter bugs or errors in files they touch, they fix them
-- During **review** -- if agents find pre-existing issues in reviewed files, they include them as "Boyscout Fixes" in the review output
+- During **implement** -- if agents encounter bugs or errors in files they touch, they **flag and fix** them
+- During **review** and **audit** -- if agents find pre-existing issues, they include them as "Boyscout Fixes" in their output for later action; they do **not** modify code
 
 All six agents follow this rule at all times.
 
@@ -223,13 +232,15 @@ done
 #    Stevey (3):         stevey-boy-choi-consult, stevey-boy-choi-implement,
 #                        stevey-boy-choi-review
 
-# 4. Create the 7 command files (Step 3 below)
+# 4. Create the 9 command files (Step 3 below)
 #    ~/.claude/commands/discuss.md
 #    ~/.claude/commands/research.md
 #    ~/.claude/commands/plan.md
 #    ~/.claude/commands/consult.md
 #    ~/.claude/commands/implement.md
 #    ~/.claude/commands/review.md
+#    ~/.claude/commands/ship.md
+#    ~/.claude/commands/audit.md
 #    ~/.claude/commands/gsd/review.md
 
 # 5. Add .review-squad/ to your project's .gitignore
@@ -243,7 +254,7 @@ done
 # 8. Verify installation
 ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
 #    Should print 25
-ls ~/.claude/commands/*.md        # Should list 6 files
+ls ~/.claude/commands/*.md        # Should list 8 files (discuss, research, plan, consult, implement, review, ship, audit)
 ls ~/.claude/commands/gsd/*.md    # Should list 1 file
 ls ~/.claude/hooks/*.js           # Should include review-squad-gate.js
 grep review-squad ~/.claude/settings.json  # Should match
@@ -3282,6 +3293,99 @@ No manual debounce step is needed -- the hook manages its own state using `data.
 </success_criteria>
 ```
 
+#### Command: /audit
+
+Create file `~/.claude/commands/audit.md`:
+
+```markdown
+---
+name: audit
+description: Run a deep security, architecture, and systems audit across the codebase or a specific subsystem
+argument-hint: "[optional: path or subsystem to focus on, e.g., 'src/auth' or 'database schema']"
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Glob
+  - Grep
+  - Agent
+  - AskUserQuestion
+---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "audit" "$*"
+```
+<objective>
+Run FC and Jared in deep audit mode to surface security vulnerabilities, architectural debt, schema health issues, dead code, and reuse opportunities. Nando synthesizes findings into a prioritized action list.
+
+The audit team: `jared-audit` (security + architecture) + `father-christmas-audit` (systems + database) → `nando-review` (synthesis).
+</objective>
+
+<context>
+$ARGUMENTS — Optional. Can be:
+- Empty: audits the whole codebase
+- Path: audits a specific directory or subsystem (e.g., `src/auth`, `src/db`)
+- Subsystem label: audits by domain (e.g., `database schema`, `API boundaries`)
+</context>
+
+<process>
+
+## Step 1: Load context
+
+```bash
+PROJECT_NAME=$(basename "$(pwd)")
+SQUAD_DIR=".review-squad/${PROJECT_NAME}"
+```
+
+Check for `CONTEXT.md` in the working directory — if it exists, read it. It provides service-specific architecture context that helps both agents understand system boundaries.
+
+If $ARGUMENTS specifies a path, resolve it and confirm it exists before passing to agents.
+
+## Step 2: Spawn FC and Jared in parallel
+
+Both agents audit independently. Spawn them simultaneously.
+
+Each agent prompt must include:
+- Working directory path
+- Focus area (from $ARGUMENTS, or "entire codebase" if empty)
+- CONTEXT.md contents if available
+- Instruction to read files before forming opinions — no assumptions
+
+**`father-christmas-audit`** — focus on:
+- Database schema, query patterns, index coverage, migration health
+- Dead code, duplication, established vs deprecated patterns
+- Dependency hygiene
+
+**`jared-audit`** — focus on:
+- Auth flows, input validation, injection surfaces, secret handling
+- System boundary coupling, data flow correctness, integration health
+- Reinvented wheels and reuse opportunities
+
+## Step 3: Synthesize with Nando
+
+After both agents complete, spawn `nando-review` with all findings concatenated.
+
+Produce a consolidated audit report:
+- **Critical** (fix immediately — security or data integrity risk)
+- **High** (fix before next feature — architectural debt blocking progress)
+- **Medium** (schedule soon — quality or efficiency improvements)
+- **Low** (backlog — nice-to-have cleanups)
+- **Highlights** (things working well, preserve them)
+
+## Step 4: Present results
+
+Display the consolidated audit report. Save to `${SQUAD_DIR}/audit-<date>.md`.
+
+</process>
+
+<success_criteria>
+- [ ] FC and Jared audited in parallel
+- [ ] Nando synthesized findings with priority tiers
+- [ ] Audit report saved to .review-squad/
+- [ ] Clear next steps presented
+</success_criteria>
+```
+
 #### GSD Command: /gsd:review
 
 For GSD (Get Stuff Done) projects, there is a phase-specific review variant. Create file `~/.claude/commands/gsd/review.md`:
@@ -3959,13 +4063,15 @@ ls -la ~/.claude/agents/father-christmas-consult.md
 ls -la ~/.claude/agents/pm-cory-early.md
 ls -la ~/.claude/agents/stevey-boy-choi-review.md
 
-# 4. Check command files (should list 6 + 1 GSD)
+# 4. Check command files (should list 8 + 1 GSD)
 ls -la ~/.claude/commands/discuss.md
 ls -la ~/.claude/commands/research.md
 ls -la ~/.claude/commands/plan.md
 ls -la ~/.claude/commands/consult.md
 ls -la ~/.claude/commands/implement.md
 ls -la ~/.claude/commands/review.md
+ls -la ~/.claude/commands/ship.md
+ls -la ~/.claude/commands/audit.md
 ls -la ~/.claude/commands/gsd/review.md
 
 # 5. Check hook (should exist and be executable)

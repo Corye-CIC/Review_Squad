@@ -62,6 +62,34 @@ If Emily's plan exists, also extract:
 - UX validation points
 - Success criteria
 
+## Step 2.5: Pre-resolve file scopes
+
+Before spawning any implementation agent, spawn `pm-cory-implement` with a targeted scope resolution task:
+
+```
+Given this Implementation Brief, resolve each agent's scope into an exact file list.
+For each agent (FC, Jared, Stevey, Emily), use grep/glob to find the files matching their scope description.
+Return a file manifest in this format:
+{
+  "fc": ["path/to/file1.ts", "path/to/file2.ts"],
+  "jared": ["path/to/file3.ts"],
+  "stevey": ["path/to/file4.html", "path/to/file4.css"],
+  "emily": ["tests/path/to/spec.ts"]
+}
+Do NOT implement anything. Scope resolution only.
+```
+
+Use the returned manifest to include a `<file-scope>` block in every agent prompt:
+```
+<file-scope>
+Read and modify ONLY these files:
+- [list from manifest]
+Do not glob, grep, or explore outside this list. If you need an unlisted file, note it in your output.
+</file-scope>
+```
+
+This keeps each agent's context window targeted to their domain. Agents do not explore the broader codebase.
+
 ## Step 3: Execute Wave 1 (foundations)
 
 Spawn agents assigned to Wave 1. These typically run sequentially because later waves depend on them.

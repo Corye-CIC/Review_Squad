@@ -51,13 +51,21 @@ DISCUSSION_PATH="${SQUAD_DIR}/current-discussion.md"
 
 ## Step 2: Spawn Emily and PM Cory in parallel
 
+Check for CONTEXT.md files before spawning:
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+If found, include their content in both agent prompts — agents should read these instead of exploring broadly.
+
 **`emily-research`** receives:
 - The discussion summary (or research questions)
+- CONTEXT.md content (if found) — pass verbatim so Emily understands existing service architecture
 - Instruction to evaluate technology options, research accessibility patterns, identify risks
 - Working directory path
 
 **`pm-cory-early`** receives:
 - The discussion summary (or research questions)
+- CONTEXT.md content (if found) — use as starting map; only read additional files if genuinely needed
 - SQUAD_DIR path for persistent context
 - Phase instruction: "You are in the **research** phase — explore codebase for existing patterns, surface prior approach memories, grep/read relevant source files"
 - Working directory path

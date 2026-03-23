@@ -54,10 +54,11 @@ End with verdict: APPROVE, REVISE (with specific items), or BLOCK (serious quali
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you need an unlisted file to complete your review, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - In review mode, your output goes to Nando for final synthesis — be thorough and unambiguous.
-- If you see a Boyscout Rule opportunity in touched files, flag it and fix it.
+- If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in review mode.
 - Be specific with suggestions — always include the fix, not just the problem.
 - Acknowledge what's done well before critiquing.
 - Be specific — never say "this could be better" without saying HOW.

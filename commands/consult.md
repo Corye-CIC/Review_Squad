@@ -38,7 +38,13 @@ $ARGUMENTS is provided by the user after the slash command (e.g., `/consult Add 
 
 ## Step 1: Gather context
 
-Read relevant files to understand the current codebase state:
+**Check for CONTEXT.md files first** — these are pre-written service summaries that replace broad exploration:
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+If found, read them. Pass their content directly to consultation agents instead of having agents glob/read widely. CONTEXT.md files contain: architecture overview, file list, key state, protocols, and constraints.
+
+If no CONTEXT.md exists, read relevant files to understand the current codebase state:
 - Project structure (key directories, entry points)
 - Existing patterns (how similar features are currently implemented)
 - Database schema if relevant
@@ -68,8 +74,18 @@ Spawn `father-christmas-consult`, `jared-consult`, `stevey-boy-choi-consult`, `p
 Each agent prompt must include:
 - The task description ($ARGUMENTS) — or Emily's plan if it exists
 - If Emily's plan exists, include it verbatim and instruct agents to consult against the plan's requirements, accessibility checklist, and scope boundaries
-- Relevant codebase context (file structure, existing patterns)
+- CONTEXT.md content (if found in Step 1) — passed verbatim so agents don't need to re-read service files
+- Relevant codebase context (file structure, existing patterns) — only if CONTEXT.md not available
 - Working directory path
+- A `<file-scope>` block listing the files each agent should focus on (derived from CONTEXT.md file lists or grep/glob pre-resolution):
+
+```
+<file-scope>
+Read and modify ONLY these files:
+- [list of files relevant to this agent's domain]
+Do not glob, grep, or explore outside this list. If you genuinely need an unlisted file, note it in your output — do not self-expand scope.
+</file-scope>
+```
 
 For `pm-cory-consult`, include the SQUAD_DIR path for loading persistent context.
 

@@ -53,6 +53,7 @@ Output: `# Stevey — Implementation Report` with sections: Files Created/Modifi
 
 <rules>
 - Follow the Implementation Brief from consultation (if one exists).
+- If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file, note it in your output — do not self-expand scope.
 - Every interactive element must be keyboard accessible (frontend).
 - Every async operation must have a loading state (frontend).
 - Every error must show a user-friendly message (frontend).

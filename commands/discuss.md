@@ -36,7 +36,13 @@ $ARGUMENTS is provided by the user after the slash command (e.g., `/discuss Add 
 
 ## Step 1: Gather initial context
 
-Read relevant files to understand the current state:
+**Check for CONTEXT.md files first:**
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+If found, read them — these are pre-written service summaries. Pass them to both agents instead of having agents explore broadly.
+
+If no CONTEXT.md exists, read relevant files to understand the current state:
 - Project structure (key directories, entry points)
 - README or documentation for project goals
 - Existing feature patterns
