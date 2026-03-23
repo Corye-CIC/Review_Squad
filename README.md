@@ -30,6 +30,7 @@ The squad operates across 7 commands that form a complete development lifecycle:
 | `/implement` | Parallel domain-specific coding guided by the Implementation Brief | FC, Jared, Stevey, Emily, PM Cory, Nando |
 | `/review` | Post-implementation code review across all specialties | All 6 agents |
 | `/ship` | Generate presentation, create PR, monitor CI, auto-fix failures | Emily, PM Cory, Nando |
+| `/audit` | Deep security, architecture, and systems audit (whole codebase or subsystem) | FC (systems/DB), Jared (security/arch), Nando (synthesis) |
 
 You can enter the lifecycle at any point. Smaller tasks can skip straight to `/consult` or `/review`. The full flow is recommended for significant features.
 
@@ -442,7 +443,7 @@ agents/                            # Mode-specific agent files (25 files)
   stevey-boy-choi-consult.md       #   Stevey — consult mode
   stevey-boy-choi-implement.md     #   Stevey — implement mode
   stevey-boy-choi-review.md        #   Stevey — review mode
-commands/                          # Lifecycle commands (7 commands)
+commands/                          # Lifecycle commands (8 commands)
   discuss.md                       #   Problem exploration
   research.md                      #   Pattern and technology research
   plan.md                          #   Implementation planning
@@ -450,6 +451,7 @@ commands/                          # Lifecycle commands (7 commands)
   implement.md                     #   Parallel agent implementation
   review.md                        #   Full squad code review
   ship.md                          #   Presentation, PR, CI monitoring
+  audit.md                         #   Deep security, architecture, and systems audit
 hooks/
   review-squad-gate.js             # PostToolUse hook for review advisory
 templates/
