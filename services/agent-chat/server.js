@@ -46,7 +46,7 @@ const MAX_HISTORY = 500;
 /** @type {Array<{agent: string, level: string, message: string, timestamp: number, room: string}>} */
 const messageHistory = [];
 
-/** @type {Map<WebSocket, {agentId: string|null}>} */
+/** @type {Map<WebSocket, {agentId: string|null, msgCount: number, windowStart: number}>} */
 const agentClients = new Map();
 
 /** @type {Set<WebSocket>} */
