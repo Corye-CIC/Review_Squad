@@ -126,7 +126,6 @@ function broadcastLifecycle(
   pool: ConnectionPool,
   room: string,
   event: string,
-  sourceAgent?: AgentId,
   data?: string,
 ): void {
   const message = data ? `[lifecycle] ${event} — ${data}` : `[lifecycle] ${event}`;
@@ -301,7 +300,7 @@ async function handleRequest(
     }
 
     try {
-      broadcastLifecycle(pool, state.currentRoom, parsed.event, parsed.agent, parsed.data);
+      broadcastLifecycle(pool, state.currentRoom, parsed.event, parsed.data);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       log(`lifecycle broadcast error: ${message}`);
