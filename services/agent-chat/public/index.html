@@ -162,6 +162,10 @@
     .msg[data-agent="pm-cory"] .agent-name { color: var(--pmcory); }
     .msg[data-agent="nando"]   .agent-name { color: var(--nando); }
 
+    /* Per-level visual weight */
+    .msg[data-level="decision"]     { opacity: 0.85; }
+    .msg[data-level="conversation"] { opacity: 0.65; }
+
     /* System / lifecycle message */
     .msg-sys {
       display: flex;
@@ -210,6 +214,12 @@
       outline: 2px solid #58a6ff;
       outline-offset: 2px;
     }
+
+    @keyframes flash-sys {
+      0%   { background: #2d333b; }
+      100% { background: var(--bg-sys); }
+    }
+    .msg-sys.flash { animation: flash-sys 0.6s ease-out; }
 
     /* ------------------------------------------------------------------ */
     /* Reduced motion                                                      */
@@ -335,6 +345,7 @@
       const el = document.createElement('div');
       el.className = 'msg';
       el.setAttribute('data-agent', msg.agent);
+      el.setAttribute('data-level', msg.level);
 
       const nameEl = document.createElement('span');
       nameEl.className = 'agent-name';
@@ -362,6 +373,11 @@
       el.className = 'msg-sys';
       el.textContent = evt.event + (evt.data ? `: ${evt.data}` : '');
       messageList.appendChild(el);
+
+      if (evt.event === 'phase_end') {
+        el.classList.add('flash');
+        el.addEventListener('animationend', () => el.classList.remove('flash'), { once: true });
+      }
 
       // Announce phase changes assertively
       if (evt.event === 'room-changed' && evt.room) {
@@ -422,6 +438,7 @@
             renderLifecycle(payload);
             afterAppend();
             if (payload.event === 'room-changed') scrollToBottom();
+            if (payload.event === 'phase_end') scrollToBottom();
             break;
         }
       });
