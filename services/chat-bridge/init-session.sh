@@ -71,9 +71,11 @@ if [ "$BRIDGE_ALIVE" = false ]; then
     echo "$BRIDGE_PID" > "$PID_FILE"
     echo "$SUBAGENTS_ROOT" > "${PID_FILE}.root"
 
-    # 5. Poll for ready file: 100ms intervals, 3s timeout (30 iterations)
+    # 5. Poll for ready file: 100ms intervals, configurable timeout (default 3s)
+    BRIDGE_STARTUP_TIMEOUT="${BRIDGE_STARTUP_TIMEOUT:-3}"
+    MAX_ITERATIONS=$(( BRIDGE_STARTUP_TIMEOUT * 10 ))
     WAITED=0
-    while [ "$WAITED" -lt 30 ]; do
+    while [ "$WAITED" -lt "$MAX_ITERATIONS" ]; do
       if [ -f "$READY_FILE" ]; then
         BRIDGE_ALIVE=true
         break
@@ -111,11 +113,15 @@ if [ "$CHAT_AVAILABLE" = true ]; then
     "http://127.0.0.1:${CHAT_BRIDGE_PORT}/room" \
     > /dev/null 2>&1 || true
 
-  # Lifecycle: phase_start
-  curl -s --max-time 1 \
-    -X POST \
-    -H "Content-Type: application/json" \
-    -d "$(jq -n --arg event "phase_start" --arg data "$COMMAND_NAME" '{event: $event, data: $data}')" \
-    "http://127.0.0.1:${CHAT_BRIDGE_PORT}/lifecycle" \
-    > /dev/null 2>&1 || true
+  # Lifecycle: phase_start — only fire once per bridge process
+  SESSION_MARKER="/tmp/chat-session-${REPO_HASH}-${BRIDGE_PID}.started"
+  if [ ! -f "$SESSION_MARKER" ]; then
+    touch "$SESSION_MARKER"
+    curl -s --max-time 1 \
+      -X POST \
+      -H "Content-Type: application/json" \
+      -d "$(jq -n --arg event "phase_start" --arg data "$COMMAND_NAME" '{event: $event, data: $data}')" \
+      "http://127.0.0.1:${CHAT_BRIDGE_PORT}/lifecycle" \
+      > /dev/null 2>&1 || true
+  fi
 fi
