@@ -215,6 +215,8 @@
       outline-offset: 2px;
     }
 
+    #messages-wrap:focus { outline: none; }
+
     @keyframes flash-sys {
       0%   { background: #2d333b; }
       100% { background: var(--bg-sys); }
@@ -242,7 +244,7 @@
   </header>
 
   <!-- Messages -->
-  <div id="messages-wrap">
+  <div id="messages-wrap" tabindex="-1">
     <div
       id="messages"
       role="log"
@@ -303,6 +305,7 @@
       newPending = 0;
       newPill.style.display = 'none';
       scrollToBottom();
+      wrap.focus({ preventScroll: true });
     });
 
     function afterAppend() {
