@@ -11,8 +11,7 @@
 //
 // Security:
 //   - Both servers bind '127.0.0.1', never '0.0.0.0'.
-//   - HTML escaping is applied server-side before any JSON payload is sent to
-//     dashboard clients (belt-and-suspenders; dashboard JS also uses textContent).
+//   - Dashboard renders all content via textContent — no server-side HTML escaping applied.
 //   - No external dependencies beyond the built-in 'ws' module.
 
 'use strict';
@@ -56,16 +55,6 @@ let currentRoom = '';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** HTML-escape a string for safe embedding in JSON sent to browsers. */
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;');
-}
-
 function log(msg) {
   process.stderr.write(`[agent-chat] ${msg}\n`);
 }
@@ -82,13 +71,13 @@ function broadcastToDashboard(payload) {
 
 /** Store a message in history (capped at MAX_HISTORY) and broadcast it. */
 function recordAndBroadcast(msg) {
-  // HTML-escape content before storing so every broadcast path is safe
+  // Dashboard always renders via textContent — no server-side HTML escaping needed.
   const safe = {
-    agent:     escapeHtml(msg.agent),
-    level:     escapeHtml(msg.level),
-    message:   escapeHtml(msg.message),
+    agent:     String(msg.agent),
+    level:     String(msg.level),
+    message:   String(msg.message),
     timestamp: typeof msg.timestamp === 'number' ? msg.timestamp : Date.now(),
-    room:      escapeHtml(msg.room ?? currentRoom),
+    room:      String(msg.room ?? currentRoom),
   };
 
   messageHistory.push(safe);
@@ -101,18 +90,12 @@ function recordAndBroadcast(msg) {
 
 /** Broadcast a lifecycle event to dashboard clients. */
 function broadcastLifecycle(event, extra) {
-  // Escape all string values in extra to prevent injection via spread
-  const safeExtra = {};
-  if (extra && typeof extra === 'object') {
-    for (const [k, v] of Object.entries(extra)) {
-      safeExtra[k] = typeof v === 'string' ? escapeHtml(v) : v;
-    }
-  }
+  // Dashboard always renders via textContent — pass values as-is.
   broadcastToDashboard({
     type:      'lifecycle',
-    event:     escapeHtml(event),
+    event:     String(event),
     timestamp: Date.now(),
-    ...safeExtra,
+    ...extra,
   });
 }
 
@@ -142,8 +125,7 @@ wssAgents.on('connection', (ws) => {
       if (VALID_AGENTS.has(text)) {
         state.agentId = text;
         log(`Agent authenticated: ${text}`);
-        // Send history replay so reconnecting agents get context
-        ws.send(JSON.stringify({ type: 'history', messages: messageHistory }));
+        ws.send(JSON.stringify({ type: 'ack' }));
       } else {
         log(`Auth rejected: unknown agentId "${text}"`);
         ws.close(1008, 'Unknown agent');
@@ -156,9 +138,10 @@ wssAgents.on('connection', (ws) => {
     // -----------------------------------------------------------------------
     if (text.startsWith('/join ')) {
       const room = text.slice(6).trim();
+      if (!/^[a-z0-9-]{1,100}$/.test(room)) return;
       currentRoom = room;
       log(`Room changed to: ${room}`);
-      broadcastLifecycle('room-changed', { room: escapeHtml(room) });
+      broadcastLifecycle('room-changed', { room });
       return;
     }
 
@@ -244,7 +227,7 @@ wssDash.on('connection', (ws) => {
   // Send current state immediately on connect
   ws.send(JSON.stringify({
     type: 'init',
-    room: escapeHtml(currentRoom),
+    room: currentRoom,
     history: messageHistory,
   }));
 

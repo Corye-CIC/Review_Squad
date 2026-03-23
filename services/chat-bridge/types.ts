@@ -22,7 +22,7 @@ export interface ChatMessage {
 // HTTP request / response shapes
 // ---------------------------------------------------------------------------
 
-export interface SendRequest { agent: string; message: string; level: string; }
+export interface SendRequest { agent: AgentId; message: string; level: VerbosityLevel; }
 export interface SendResponse { ok: boolean; filtered?: boolean; error?: string; }
 export interface RoomRequest { name: string; }
 export interface RoomResponse { ok: boolean; room: string; error?: string; }
@@ -38,7 +38,6 @@ export interface StatusResponse {
   queuedMessages: number;
 }
 
-export interface VerbosityRequest { level: string; }
 export interface VerbosityResponse { ok: boolean; level: VerbosityLevel; previous: VerbosityLevel; }
 
 // ---------------------------------------------------------------------------
@@ -59,7 +58,7 @@ export interface PooledConnection {
 
 export interface BridgeConfig {
   readonly agentChatHost: string;       // default '127.0.0.1'
-  readonly agentChatHttpPort: number;   // default 4001
+  readonly agentChatHttpPort: number;   // default 4000
   readonly bridgeHost: string;          // default '127.0.0.1'
   readonly bridgePort: number;          // default 4002
   readonly pidFile: string;
@@ -167,7 +166,7 @@ export function parseLifecycleRequest(body: unknown): LifecycleRequest | null {
  * Validates and narrows a request body to VerbosityRequest.
  * Enforces: level is a valid VerbosityLevel string.
  */
-export function parseVerbosityRequest(body: unknown): VerbosityRequest | null {
+export function parseVerbosityRequest(body: unknown): { level: VerbosityLevel } | null {
   if (!isObject(body)) return null;
 
   const { level } = body;

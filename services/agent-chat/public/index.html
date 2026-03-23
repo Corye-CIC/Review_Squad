@@ -97,19 +97,6 @@
     #ws-dot.reconnecting { background: #d29922; }
     #ws-dot.disconnected { background: #f85149; }
 
-    /* Shape supplement for color-blind users (WCAG 1.4.1) */
-    #ws-dot::after {
-      font-size: 5px;
-      line-height: 7px;
-      display: block;
-      text-align: center;
-      color: #0d1117;
-      font-weight: 900;
-    }
-    #ws-dot.connected::after    { content: '✓'; }
-    #ws-dot.reconnecting::after { content: '~'; }
-    #ws-dot.disconnected::after { content: '×'; }
-
     /* ------------------------------------------------------------------ */
     /* Message list                                                        */
     /* ------------------------------------------------------------------ */
@@ -213,9 +200,16 @@
       cursor: pointer;
       user-select: none;
       box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      font: inherit;
+      appearance: none;
     }
 
     #new-pill:hover { background: #1f3a6e; }
+
+    #new-pill:focus-visible {
+      outline: 2px solid #58a6ff;
+      outline-offset: 2px;
+    }
 
     /* ------------------------------------------------------------------ */
     /* Reduced motion                                                      */
@@ -232,7 +226,7 @@
     <span class="label">room</span>
     <span id="phase-name" aria-live="assertive" aria-atomic="true">—</span>
     <div id="ws-status" aria-live="polite" aria-atomic="true">
-      <div id="ws-dot" class="disconnected"></div>
+      <div id="ws-dot" class="disconnected" aria-hidden="true"></div>
       <span id="ws-label">disconnected</span>
     </div>
   </header>
@@ -246,12 +240,10 @@
       aria-label="Agent chat messages"
       aria-relevant="additions"
     ><p style="color: var(--muted); text-align: center; padding: 2em 0; font-size: 12px;" id="empty-state">Waiting for messages…</p></div>
-    <div
+    <button
       id="new-pill"
-      role="button"
-      tabindex="0"
       aria-label="Jump to new messages"
-    >↓ <span id="new-count">0</span> new messages</div>
+    >↓ <span id="new-count">0</span> new messages</button>
   </div>
 
   <script>
@@ -303,13 +295,6 @@
       scrollToBottom();
     });
 
-    newPill.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        newPill.click();
-      }
-    });
-
     function afterAppend() {
       if (autoScroll) {
         scrollToBottom();
@@ -353,8 +338,7 @@
 
       const nameEl = document.createElement('span');
       nameEl.className = 'agent-name';
-      // msg.message is already HTML-escaped by server; use textContent for
-      // the agent name chip (belt-and-suspenders — agent names are server-validated)
+      // Use textContent — safe regardless of message content.
       nameEl.textContent = AGENT_LABELS[msg.agent] ?? msg.agent;
 
       const bodyEl = document.createElement('span');
@@ -436,7 +420,8 @@
 
           case 'lifecycle':
             renderLifecycle(payload);
-            if (payload.event !== 'room-changed') afterAppend();
+            afterAppend();
+            if (payload.event === 'room-changed') scrollToBottom();
             break;
         }
       });

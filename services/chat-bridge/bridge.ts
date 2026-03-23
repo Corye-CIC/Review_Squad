@@ -18,7 +18,6 @@ import {
   parseRoomRequest,
   parseLifecycleRequest,
   parseVerbosityRequest,
-  isVerbosityLevel,
 } from './types.js';
 import type {
   VerbosityLevel,
@@ -41,7 +40,6 @@ import type { ConnectionPool } from './connections.js';
 
 const BRIDGE_HOST = '127.0.0.1';
 const BRIDGE_PORT = 4002;
-const UPSTREAM_BASE_URL = 'http://127.0.0.1:4000';
 const UPSTREAM_WS_URL = 'ws://127.0.0.1:4000';
 const LOG_PREFIX = '[bridge]';
 const DEFAULT_VERBOSITY: VerbosityLevel = 'decision';
@@ -133,20 +131,8 @@ function broadcastLifecycle(
 ): void {
   const message = data ? `[lifecycle] ${event} — ${data}` : `[lifecycle] ${event}`;
 
-  for (const agentId of VALID_AGENTS) {
-    // Skip the source agent to avoid echo if one is specified
-    if (sourceAgent !== undefined && agentId === sourceAgent) continue;
-
-    const chatMsg: ChatMessage = {
-      agent: agentId,
-      level: 'phase',
-      message,
-      timestamp: Date.now(),
-      room,
-    };
-
-    pool.send(chatMsg);
-  }
+  const sender: AgentId = (VALID_AGENTS.find(id => id !== sourceAgent) ?? VALID_AGENTS[0]) as AgentId;
+  pool.send({ agent: sender, level: 'phase', message, timestamp: Date.now(), room });
 }
 
 // ---------------------------------------------------------------------------
@@ -268,7 +254,7 @@ async function handleRequest(
       return;
     }
 
-    const level = parsed.level as VerbosityLevel;
+    const level = parsed.level;
 
     if (!shouldPass(level, state.verbosity)) {
       const body: SendResponse = { ok: true, filtered: true };
@@ -277,7 +263,7 @@ async function handleRequest(
     }
 
     const chatMsg: ChatMessage = {
-      agent: parsed.agent as AgentId,
+      agent: parsed.agent,
       level,
       message: parsed.message,
       timestamp: Date.now(),
@@ -306,6 +292,15 @@ async function handleRequest(
       return;
     }
 
+    if (parsed.event.length > 500) {
+      badRequest(res, 'event must be 500 characters or fewer');
+      return;
+    }
+    if (parsed.data !== undefined && parsed.data.length > 2000) {
+      badRequest(res, 'data must be 2000 characters or fewer');
+      return;
+    }
+
     try {
       broadcastLifecycle(pool, state.currentRoom, parsed.event, parsed.agent, parsed.data);
     } catch (err: unknown) {
@@ -331,13 +326,8 @@ async function handleRequest(
       return;
     }
 
-    if (!isVerbosityLevel(parsed.level)) {
-      badRequest(res, `Invalid level — must be one of: ${VALID_LEVELS.join(', ')}`);
-      return;
-    }
-
     const previous = state.verbosity;
-    state.verbosity = parsed.level as VerbosityLevel;
+    state.verbosity = parsed.level;
     log(`verbosity changed from ${previous} to ${state.verbosity}`);
 
     const body: VerbosityResponse = { ok: true, level: state.verbosity, previous };

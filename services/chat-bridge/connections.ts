@@ -150,7 +150,7 @@ export function createConnectionPool(config: BridgeConfig): ConnectionPool {
   // -----------------------------------------------------------------------
 
   const pool: ConnectionPool = {
-    async connect(agentChatWsUrl: string): Promise<void> {
+    connect(agentChatWsUrl: string): Promise<void> {
       const STAGGER_MS = 200;
       let delay = 0;
       for (const agentId of VALID_AGENTS) {
@@ -173,6 +173,7 @@ export function createConnectionPool(config: BridgeConfig): ConnectionPool {
         }
         delay += STAGGER_MS;
       }
+      return Promise.resolve();
     },
 
     send(message: ChatMessage): boolean {
