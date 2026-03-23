@@ -12,6 +12,9 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "implement" "$*"
+```
 <objective>
 Execute parallel implementation using the squad. Each agent writes code in their domain following the Implementation Brief produced by `/consult`. Emily designs validation tests in parallel. PM Cory coordinates. Nando oversees integration.
 

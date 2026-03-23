@@ -14,6 +14,9 @@ allowed-tools:
   - WebSearch
   - WebFetch
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "research" "$*"
+```
 <objective>
 Run Emily and PM Cory in research mode to investigate open questions from the discussion phase, evaluate technology options, analyze codebase patterns, and identify risks.
 

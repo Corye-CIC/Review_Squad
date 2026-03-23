@@ -12,6 +12,9 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "review" "$*"
+```
 <objective>
 Run the 6-agent Review Squad on changed files. Works in any project — GSD or not.
 

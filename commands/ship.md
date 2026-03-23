@@ -12,6 +12,9 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "ship" "$*"
+```
 <objective>
 Ship the current branch. This is the final command in the lifecycle: `/discuss` -> `/research` -> `/plan` -> `/consult` -> `/implement` -> `/review` -> `/ship`. It generates a stakeholder presentation (HTML), creates or updates a pull request, monitors CI, and auto-fixes failures.
 

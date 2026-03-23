@@ -11,3 +11,9 @@ progress.md
 
 # OS
 .DS_Store
+
+# Dependencies & build output
+node_modules/
+services/*/node_modules/
+services/chat-bridge/dist/
+.review-squad/

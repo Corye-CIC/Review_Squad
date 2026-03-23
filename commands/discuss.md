@@ -12,6 +12,9 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "discuss" "$*"
+```
 <objective>
 Run Emily and PM Cory in discussion mode to explore the problem space, gather requirements, define success criteria, and identify open questions for research.
 

@@ -13,7 +13,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 ```bash
-source "${SUBAGENTS_ROOT}/services/chat-bridge/init-session.sh" "consult" "$*"
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "consult" "$*"
 ```
 <objective>
 Run the squad in consultation mode before implementation begins. Each agent analyzes the task from their specialty, then Nando synthesizes an Implementation Brief that guides parallel implementation. If Emily's plan exists from a prior `/plan` run, it serves as the input for consultation.
