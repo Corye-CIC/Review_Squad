@@ -35,6 +35,10 @@ Phase: $ARGUMENTS (required — e.g., "49" or "49-search-enhancement")
 Determine the phase directory and find all files changed during this phase's execution.
 
 ```bash
+# Validate PHASE_ARG before first use
+PHASE_NUM="${PHASE_ARG%%[-_]*}"
+[[ "$PHASE_NUM" =~ ^[0-9]+$ ]] || { echo "Invalid phase number: $PHASE_NUM"; exit 1; }
+
 # Find the phase directory
 PHASE_DIR=$(find .planning/phases/ -maxdepth 1 -type d -name "${PHASE_ARG}*" 2>/dev/null | head -1)
 ```
@@ -43,10 +47,16 @@ Get changed files from git commits associated with this phase:
 
 ```bash
 # Find commits for this phase (exclude docs/planning commits)
-PHASE_NUM="${PHASE_ARG%%[-_]*}"
-git log --oneline --all --grep="(${PHASE_NUM}" --grep="feat\|fix\|refactor\|style\|perf" --format="%H" | while read sha; do
+# --all-match requires BOTH --grep patterns to match (phase number AND commit type)
+# --grep="(${PHASE_NUM}" matches conventional commit scope format: feat(49): description
+git log --oneline --all \
+  --grep="(${PHASE_NUM}" \
+  --grep="feat|fix|refactor|style|perf" \
+  --extended-regexp \
+  --all-match \
+  --format="%H" | while read sha; do
   git diff-tree --no-commit-id --name-only -r "$sha"
-done | sort -u | grep -v "^\.planning/" | grep -v "^e2e/"
+done | sort -u | grep -v "^\.planning/"
 ```
 
 If no commits found, fall back to checking git diff against the phase's start point, or ask the user which files to review.
@@ -70,6 +80,8 @@ PLAN_PATH="${SQUAD_DIR}/current-plan.md"
 DISCUSSION_PATH="${SQUAD_DIR}/current-discussion.md"
 RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 ```
+
+If each path exists, read the file and store its contents as `plan_content`, `discussion_content`, `research_content` respectively. Pass the file contents (not the paths) to Emily's prompt.
 
 ## Step 3: Spawn reviewers in parallel
 
@@ -113,8 +125,8 @@ You are reviewing Phase {PHASE_NUM} ({phase_name}).
 
 Here are the review outputs from your squad:
 
-=== BABY BOY CHRISTMAS ===
-{bbc_output}
+=== FATHER CHRISTMAS ===
+{fc_output}
 
 === JARED ===
 {jared_output}
@@ -127,6 +139,8 @@ Here are the review outputs from your squad:
 
 Changed files:
 {CHANGED_FILES}
+
+Working directory: {cwd}
 
 Synthesize these reviews into your final consolidated verdict.
 Read any files flagged by multiple reviewers or with conflicting recommendations.
@@ -150,7 +164,7 @@ This includes E2E feature validation and pressure testing — not just code revi
 {nando_output}
 
 === AGENT REVIEWS (for reference) ===
-FC: {bbc_output}
+FC: {fc_output}
 Jared: {jared_output}
 Stevey: {stevey_output}
 PM Cory: {pm_cory_output}
@@ -170,6 +184,7 @@ PM Cory: {pm_cory_output}
 Phase goal: {goal from ROADMAP.md}
 Changed files: {CHANGED_FILES}
 Working directory: {cwd}
+PM Cory persistent context: {SQUAD_DIR}/
 
 Perform your final review:
 1. Run any automated validation tests you created during /implement

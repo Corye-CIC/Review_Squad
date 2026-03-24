@@ -77,6 +77,8 @@ DISCUSSION_PATH="${SQUAD_DIR}/current-discussion.md"
 RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 ```
 
+If each path exists, read the file and store its contents as `plan_content`, `discussion_content`, `research_content` respectively. Pass the file contents (not the paths) to Emily's prompt.
+
 ## Step 4: Spawn reviewers in parallel
 
 **Thin-mode threshold:** If ≤ 2 files changed AND no frontend files, use thin mode — spawn only `jared-review` + `father-christmas-review`, then Nando. Skip Stevey and PM Cory. This avoids spawning 4+ agents for trivial changesets.
@@ -111,6 +113,7 @@ After all parallel agents complete, spawn `nando-review` with all their outputs 
 Nando receives:
 - All agent outputs
 - The file list
+- Working directory: {cwd}
 - Instructions to read any files flagged by multiple reviewers
 
 ## Step 6: Spawn Emily (Final Review)
@@ -132,7 +135,7 @@ This includes E2E feature validation and pressure testing — not just code revi
 {nando_output}
 
 === AGENT REVIEWS (for reference) ===
-FC: {bbc_output}
+FC: {fc_output}
 Jared: {jared_output}
 Stevey: {stevey_output}
 PM Cory: {pm_cory_output}
@@ -151,6 +154,8 @@ PM Cory: {pm_cory_output}
 
 Changed files: {file_list}
 Working directory: {cwd}
+PM Cory persistent context: {SQUAD_DIR}/
+Note: read {SQUAD_DIR}/agent-notes/ to surface prior learnings from PM Cory's persistent memory.
 
 Perform your final review:
 1. Run any automated validation tests you created during /implement

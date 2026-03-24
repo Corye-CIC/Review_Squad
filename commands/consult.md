@@ -61,7 +61,7 @@ RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 
 If `current-plan.md` exists, read it — this is Emily's implementation plan and should serve as the primary input for consultation. Also read discussion and research files if present for full context.
 
-## Step 2: Load PM Cory's persistent context
+## Step 2: Initialize PM Cory's persistent storage
 
 ```bash
 mkdir -p "${SQUAD_DIR}/agent-notes"
@@ -96,6 +96,8 @@ After all consultation agents complete, spawn `nando-consult` with all their bri
 ```
 You are consulting on: $ARGUMENTS
 
+Working directory: {cwd}
+
 {If Emily's plan exists:}
 Emily's Implementation Plan (from /discuss → /research → /plan):
 {plan_content}
@@ -106,7 +108,7 @@ Emily's Research Findings:
 Here are the consultation briefs from your squad:
 
 === FC — Architecture Brief ===
-{bbc_output}
+{fc_output}
 
 === JARED — Systems & Security Brief ===
 {jared_output}

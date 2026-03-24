@@ -31,7 +31,7 @@ The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 | `/review` | Post-implementation code review across all specialties | All 6 agents |
 | `/ship` | Generate presentation, create PR, monitor CI, auto-fix failures | Emily, PM Cory, Nando |
 | `/audit` | Deep security, architecture, and systems audit (whole codebase or subsystem) | FC (systems/DB), Jared (security/arch), Nando (synthesis) |
-| `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | PM Cory (routing) or any combination |
+| `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | Domain heuristics (auto-routed) or any combination |
 
 You can enter the lifecycle at any point. Smaller tasks can skip straight to `/consult` or `/review`. Use `/quick` for truly ad-hoc work that doesn't need the full lifecycle at all.
 
@@ -329,17 +329,17 @@ Not every task needs all 7 phases. Here's how to shortcut efficiently:
 #### `/quick` — Ad-hoc Agent Dispatch
 **You provide:** A task description, and optionally which agents to involve and their modes.
 **The squad does:**
-- **No agents specified** — PM Cory (`pm-cory-early`) picks the single best-fit agent and mode, fires immediately. Maximum two agents if the task genuinely spans two separable domains.
+- **No agents specified** — inline domain heuristics pick the single best-fit agent and mode, fires immediately. Maximum two agents if the task genuinely spans two separable domains.
 - **Agents without modes** — each named agent runs a lightweight pre-flight (MODE/RELEVANCE/REASON). Only high-relevance agents proceed. You confirm before work begins.
 - **Agents with explicit modes** (e.g. `fc:implement,jared:review`) — fires immediately, no pre-flight, no confirmation.
 - **`+nando` flag** — after primary agents complete, Nando synthesizes all outputs into a consolidated verdict.
 
 **Syntax:**
 ```
-/quick <task description>                         # PM Cory routes
-/quick <task description> fc,jared                # self-select pre-flight
+/quick <task description>                             # auto-routed via domain heuristics
+/quick <task description> fc,jared                    # self-select pre-flight
 /quick <task description> fc:implement,jared:review   # explicit — fires immediately
-/quick <task description> stevey,fc +nando        # self-select + Nando synthesis
+/quick <task description> stevey,fc +nando            # self-select + Nando synthesis
 ```
 
 **Agent aliases:** `fc` (Father Christmas), `jared`, `stevey` (Stevey Boy Choi), `cory` (PM Cory), `nando`, `emily`
@@ -467,7 +467,7 @@ agents/                            # Mode-specific agent files (25 files)
   stevey-boy-choi-consult.md       #   Stevey — consult mode
   stevey-boy-choi-implement.md     #   Stevey — implement mode
   stevey-boy-choi-review.md        #   Stevey — review mode
-commands/                          # Lifecycle commands (8 commands)
+commands/                          # Lifecycle commands (9 commands)
   discuss.md                       #   Problem exploration
   research.md                      #   Pattern and technology research
   plan.md                          #   Implementation planning
@@ -476,6 +476,7 @@ commands/                          # Lifecycle commands (8 commands)
   review.md                        #   Full squad code review
   ship.md                          #   Presentation, PR, CI monitoring
   audit.md                         #   Deep security, architecture, and systems audit
+  quick.md                         #   Ad-hoc agent dispatch
 hooks/
   review-squad-gate.js             # PostToolUse hook for review advisory
 templates/

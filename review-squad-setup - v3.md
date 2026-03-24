@@ -2849,7 +2849,7 @@ Emily's Research Findings:
 Here are the consultation briefs from your squad:
 
 === FC — Architecture Brief ===
-{bbc_output}
+{fc_output}
 
 === JARED — Systems & Security Brief ===
 {jared_output}
@@ -3014,7 +3014,7 @@ After all waves complete, spawn Nando in **implement mode**:
 Implementation complete. Here are the agent reports:
 
 === FC ===
-{bbc_report}
+{fc_report}
 
 === JARED ===
 {jared_report}
@@ -3207,7 +3207,7 @@ This includes E2E feature validation and pressure testing — not just code revi
 {nando_output}
 
 === AGENT REVIEWS (for reference) ===
-FC: {bbc_output}
+FC: {fc_output}
 Jared: {jared_output}
 Stevey: {stevey_output}
 PM Cory: {pm_cory_output}
@@ -4216,7 +4216,7 @@ source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/d
 Run one or more Review Squad agents directly on a short task description, bypassing the full `/discuss` → `/research` → `/plan` → `/consult` → `/implement` → `/review` → `/ship` lifecycle. Token-efficient: only the agents genuinely needed are spawned.
 
 Three execution paths depending on how agents are specified:
-1. **No agents** — PM Cory routes to the single best-fit agent automatically
+1. **No agents** — domain heuristics route to the single best-fit agent automatically
 2. **Agents without modes** — agents self-select their mode via a lightweight pre-flight; user confirms before work begins
 3. **Agents with explicit modes** — fires immediately, no confirmation
 </objective>
@@ -4243,7 +4243,9 @@ Parse `$ARGUMENTS` right-to-left:
 
 - `TASK` is empty → `"Task description is required."`
 - Unknown alias in `AGENT_LIST` (e.g. `carlos`) → `"Unknown agent: carlos. Valid aliases: fc, jared, stevey, cory, nando, emily."`
-- Invalid mode (e.g. `fc:ship`) → `"Invalid mode 'ship' for fc. Valid modes: implement, review, consult, audit."`
+- `emily` without explicit mode in `AGENT_LIST` → `"emily requires an explicit mode in /quick. Valid modes: implement, review, discuss, research, plan, present."`
+- Invalid mode for `emily` (e.g. `emily:consult`) → `"Invalid mode 'consult' for emily. Valid modes: implement, review, discuss, research, plan, present."`
+- Invalid mode for other agents (e.g. `fc:ship`) → `"Invalid mode 'ship' for fc. Valid modes: implement, review, consult, audit."`
 - More than 4 agents in `AGENT_LIST` (Path 2 only) → `"Too many agents for /quick (max 4). Use /implement for full-squad work."`
 
 **Resolve aliases to full names:**
@@ -4256,33 +4258,35 @@ Parse `$ARGUMENTS` right-to-left:
 - `AGENT_LIST` empty → **Path 1**
 - `AGENT_LIST` has agents, none have `:mode` suffix → **Path 2**
 - All agents in `AGENT_LIST` have `:mode` suffix → **Path 3**
-- Mixed (some with mode, some without) → treat bare-name agents as Path 2 pre-flight; explicit-mode agents skip pre-flight and use their stated mode
+- Mixed (some with mode, some without) → `"Mixed agent list not supported: either all agents must have explicit modes or none. Use fc:implement,jared or fc,jared — not both."`
 
 </parsing>
 
 <process>
 
-## Path 1 — PM Cory Routing (no agents specified)
+## Path 1 — Direct Routing (no agents specified)
 
-Spawn `pm-cory-early` with this prompt:
+Apply domain heuristics to determine the single best-fit agent and mode:
+
+- security / auth / validation / hardening → `jared`
+- database / schema / business logic / models → `father-christmas`
+- frontend / UX / accessibility / service connectivity → `stevey-boy-choi`
+- When unclear, pick the dominant concern.
+
+Pick ONE agent. Only escalate to TWO if the task genuinely spans two clearly separable domains (e.g. security hardening on a frontend component). Maximum two agents.
+
+Determine mode from task description: `implement` (build/add/fix), `review` (inspect/check/audit), `consult` (design/plan), `audit` (deep audit).
+
+Spawn the chosen agent(s) using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
 
 ```
-You are acting as a task router for the /quick command.
-
 Task: {TASK}
 
-Your job: determine the single most fitting Review Squad agent for this task and the correct mode. Spawn that agent immediately with the full task description.
-
-Rules:
-- Pick ONE agent. Only escalate to TWO if the task genuinely spans two clearly separable domains (e.g. security hardening on a frontend component). Maximum two agents.
-- Domain heuristics: security/auth/validation/hardening → jared | database/schema/business logic/models → father-christmas | frontend/UX/accessibility/service connectivity → stevey-boy-choi
-- When unclear, pick the dominant concern.
-- For each chosen agent, determine the appropriate mode (implement/review/consult/audit) based on the task description.
-- Spawn agents using the Agent tool with subagent_type: `{agent-name}-{mode}` (e.g. `jared-implement`).
-- Pass the full task description to each agent as their prompt.
-- Do NOT write to learnings.jsonl or any .review-squad/ files.
+Working directory: {cwd}
+```
 
 After agents complete, display outputs using the format:
+```
 === {AGENT NAME} ({mode}) ===
 {output}
 ```
@@ -4297,6 +4301,8 @@ Spawn each agent in `AGENT_LIST` in parallel using the Agent tool. Use subagent_
 
 ```
 Task: {TASK}
+
+Working directory: {cwd}
 
 Reply in this exact format — no other text:
 MODE: [implement|review|consult|audit]
@@ -4335,7 +4341,13 @@ Use `AskUserQuestion` to show only the kept (high-relevance) agents and ask for 
 Proceed? (y/n/edit)
 ```
 
-- `y` → spawn each kept agent with their self-selected mode using the Agent tool (subagent_type: `{agent-name}-{mode}`). Pass `{TASK}` as their full prompt.
+- `y` → spawn each kept agent with their self-selected mode using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
+
+```
+Task: {TASK}
+
+Working directory: {cwd}
+```
 - `n` → stop silently.
 - `edit` → go to the edit flow.
 
@@ -4361,7 +4373,15 @@ If `HAS_NANDO=true` (and nando not in AGENT_LIST), after primary agents complete
 
 Validate all agent names and modes. If `nando` has an explicit mode and `+nando` is also present, the explicit mode takes precedence — Nando runs as a peer agent in its specified mode, and the `+nando` synthesis pass is skipped.
 
-Spawn all agents in parallel using the Agent tool (subagent_type: `{agent-name}-{mode}`). Pass `{TASK}` as their prompt. No confirmation step.
+Spawn all agents in parallel using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
+
+```
+Task: {TASK}
+
+Working directory: {cwd}
+```
+
+No confirmation step.
 
 If `HAS_NANDO=true` (and Nando was not explicitly listed with a mode), proceed to **+nando synthesis** after agents complete.
 
@@ -4372,7 +4392,12 @@ If `HAS_NANDO=true` (and Nando was not explicitly listed with a mode), proceed t
 Spawn `nando-review` with all primary agent outputs concatenated:
 
 ```
-Task: {TASK}
+Task:
+---
+{TASK}
+---
+
+Working directory: {cwd}
 
 Here are the outputs from your squad:
 
@@ -4387,7 +4412,7 @@ Synthesize these outputs into a consolidated verdict. Focus on the task above �
 
 ## Output Format
 
-Display agent outputs in user-specified order (or Cory's chosen order for Path 1 — primary first, secondary second). Each section preceded by a header:
+Display agent outputs in user-specified order (or routing-determined order for Path 1 — primary first, secondary second). Each section preceded by a header:
 
 ```
 === {AGENT NAME} ({mode}) ===
@@ -4403,7 +4428,7 @@ If +nando:
 </process>
 
 <success_criteria>
-- [ ] Path 1: PM Cory routes to single best-fit agent without confirmation
+- [ ] Path 1: domain heuristics route to single best-fit agent without confirmation
 - [ ] Path 2: Pre-flight fires in parallel; only high-relevance agents proceed; user confirms before work
 - [ ] Path 2 all-low: user prompted with p/e/a options; p picks first highest-rated agent
 - [ ] Path 3: agents fire immediately with no pre-flight or confirmation
@@ -4534,8 +4559,8 @@ You are reviewing Phase {PHASE_NUM} ({phase_name}).
 
 Here are the review outputs from your squad:
 
-=== BABY BOY CHRISTMAS ===
-{bbc_output}
+=== FATHER CHRISTMAS ===
+{fc_output}
 
 === JARED ===
 {jared_output}
@@ -4571,7 +4596,7 @@ This includes E2E feature validation and pressure testing — not just code revi
 {nando_output}
 
 === AGENT REVIEWS (for reference) ===
-FC: {bbc_output}
+FC: {fc_output}
 Jared: {jared_output}
 Stevey: {stevey_output}
 PM Cory: {pm_cory_output}

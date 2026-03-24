@@ -133,8 +133,10 @@ After all waves complete, spawn `nando-implement`:
 ```
 Implementation complete. Here are the agent reports:
 
+Working directory: {cwd}
+
 === FC ===
-{bbc_report}
+{fc_report}
 
 === JARED ===
 {jared_report}
