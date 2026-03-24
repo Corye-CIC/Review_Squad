@@ -15,7 +15,7 @@ A 6-agent review and development squad for [Claude Code](https://claude.com/clau
 
 ## Lifecycle Commands
 
-The squad operates across 7 commands that form a complete development lifecycle:
+The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 
 ```
 /discuss  →  /research  →  /plan  →  /consult  →  /implement  →  /review  →  /ship
@@ -31,8 +31,9 @@ The squad operates across 7 commands that form a complete development lifecycle:
 | `/review` | Post-implementation code review across all specialties | All 6 agents |
 | `/ship` | Generate presentation, create PR, monitor CI, auto-fix failures | Emily, PM Cory, Nando |
 | `/audit` | Deep security, architecture, and systems audit (whole codebase or subsystem) | FC (systems/DB), Jared (security/arch), Nando (synthesis) |
+| `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | PM Cory (routing) or any combination |
 
-You can enter the lifecycle at any point. Smaller tasks can skip straight to `/consult` or `/review`. The full flow is recommended for significant features.
+You can enter the lifecycle at any point. Smaller tasks can skip straight to `/consult` or `/review`. Use `/quick` for truly ad-hoc work that doesn't need the full lifecycle at all.
 
 ## Agent Deep Dives
 
@@ -238,6 +239,7 @@ Not every task needs all 7 phases. Here's how to shortcut efficiently:
 
 | Task Size | Start At | Skip |
 |-----------|----------|------|
+| **Ad-hoc task** (quick fix, focused question, one-shot review) | `/quick` | Everything — no lifecycle needed |
 | **Bug fix** (1-3 files) | Write the fix yourself, then `/review` | Everything before review |
 | **Small feature** (3-10 files, single domain) | `/consult` → `/implement` → `/review` | discuss, research, plan |
 | **Medium feature** (10+ files, multiple domains) | `/plan` → `/consult` → `/implement` → `/review` | discuss, research |
@@ -323,6 +325,28 @@ Not every task needs all 7 phases. Here's how to shortcut efficiently:
 - **Auto-fixes** CI failures by routing to FC/Jared (max 3 attempts)
 
 **You get:** A merged-ready PR, an HTML presentation in `.review-squad/<project>/presentations/`, and green CI (or a clear escalation if auto-fix fails).
+
+#### `/quick` — Ad-hoc Agent Dispatch
+**You provide:** A task description, and optionally which agents to involve and their modes.
+**The squad does:**
+- **No agents specified** — PM Cory (`pm-cory-early`) picks the single best-fit agent and mode, fires immediately. Maximum two agents if the task genuinely spans two separable domains.
+- **Agents without modes** — each named agent runs a lightweight pre-flight (MODE/RELEVANCE/REASON). Only high-relevance agents proceed. You confirm before work begins.
+- **Agents with explicit modes** (e.g. `fc:implement,jared:review`) — fires immediately, no pre-flight, no confirmation.
+- **`+nando` flag** — after primary agents complete, Nando synthesizes all outputs into a consolidated verdict.
+
+**Syntax:**
+```
+/quick <task description>                         # PM Cory routes
+/quick <task description> fc,jared                # self-select pre-flight
+/quick <task description> fc:implement,jared:review   # explicit — fires immediately
+/quick <task description> stevey,fc +nando        # self-select + Nando synthesis
+```
+
+**Agent aliases:** `fc` (Father Christmas), `jared`, `stevey` (Stevey Boy Choi), `cory` (PM Cory), `nando`, `emily`
+
+**You get:** Agent output(s) in `=== AGENT (mode) ===` format, plus Nando's synthesis if `+nando` was specified. No `.review-squad/` artifacts written.
+
+**Tip:** `/quick` is the zero-ceremony option. No plan, no brief, no persistent memory updates. Use it for focused questions, quick fixes, or spot checks where the full lifecycle would be overkill.
 
 ### Efficiency Tips
 
