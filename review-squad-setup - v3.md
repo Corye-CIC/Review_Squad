@@ -6104,16 +6104,52 @@ The Review Squad uses two separate memory systems that serve different purposes:
 2. **Large changesets:** If reviewing many files, agents may hit context limits. Narrow the scope: `/review src/specific-file.ts` instead of reviewing everything.
 3. **Session state reset:** Delete `/tmp/review-squad-*.json` to reset session tracking if the hook is in a bad state.
 
+### Update to Latest
+
+To update an existing installation to the latest agent definitions, commands, and hook — run from the repo root:
+
+```bash
+# Update all 25 agent files
+cp agents/*.md ~/.claude/agents/
+
+# Update all 9 command files
+cp commands/*.md ~/.claude/commands/
+cp commands/gsd/review.md ~/.claude/commands/gsd/review.md
+
+# Update the hook
+cp hooks/review-squad-gate.js ~/.claude/hooks/review-squad-gate.js
+```
+
+No restart required — Claude Code reads agent and command files on each invocation. The hook takes effect immediately.
+
+**Verify the update:**
+```bash
+# Confirm all 25 agent files are present
+ls ~/.claude/agents/ | grep -E "^(emily|father-christmas|jared|nando|pm-cory|stevey-boy-choi)-" | wc -l
+# Should output: 25
+
+# Confirm all 9 command files are present
+ls ~/.claude/commands/*.md | xargs -I{} basename {} | sort
+# Should list: audit.md, consult.md, discuss.md, implement.md, plan.md, quick.md, research.md, review.md, ship.md
+```
+
+---
+
 ### Uninstall / Reset
 
 To fully remove the Review Squad:
 
 ```bash
-# Remove agent files
-rm -f ~/.claude/agents/{father-christmas,jared,stevey-boy-choi,pm-cory,nando,emily}.md
+# Remove all 25 mode-suffixed agent files
+rm -f ~/.claude/agents/emily-{discuss,implement,plan,present,research,review}.md
+rm -f ~/.claude/agents/father-christmas-{audit,consult,implement,review}.md
+rm -f ~/.claude/agents/jared-{audit,consult,implement,review}.md
+rm -f ~/.claude/agents/nando-{consult,implement,review}.md
+rm -f ~/.claude/agents/pm-cory-{consult,early,implement,present,review}.md
+rm -f ~/.claude/agents/stevey-boy-choi-{consult,implement,review}.md
 
-# Remove command files
-rm -f ~/.claude/commands/{discuss,research,plan,consult,implement,review}.md
+# Remove all 9 command files
+rm -f ~/.claude/commands/{audit,consult,discuss,implement,plan,quick,research,review,ship}.md
 rm -f ~/.claude/commands/gsd/review.md
 
 # Remove hook
