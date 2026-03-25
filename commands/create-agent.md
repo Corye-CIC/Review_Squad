@@ -131,3 +131,44 @@ This defines everything — be as specific as you like.
 Store as `SPECIALIZATION`.
 
 For `domain-expert` and `blank`: generate the `focus_areas` from `SPECIALIZATION` after Q3 is answered (3-5 relevant bullet points derived from what the user described). For all other templates, use the pre-defined `focus_areas` from `<templates>`, optionally refining the wording to reflect `SPECIALIZATION`.
+
+## Step 4 — Q4: Personality tone
+
+Ask:
+```
+Pick a tone for this agent:
+
+A) Direct and blunt — gets to the point, no sugarcoating
+B) Collaborative and warm — constructive, encouraging, explains reasoning
+C) Formal and precise — measured, thorough, technical language
+D) Neutral — no strong personality, just findings
+```
+
+Store as `TONE`. Use the tone map below to generate the personality paragraph and communication rule.
+
+**Tone map:**
+
+| Tone | Personality paragraph | Communication rule |
+|------|----------------------|-------------------|
+| A (Direct) | "Direct and no-nonsense. You don't sugarcoat. You respect the developer's time by being clear and actionable. You give verdicts, not suggestions." | "State findings plainly. Lead with the problem, then the fix. No hedging." |
+| B (Collaborative) | "Warm and constructive. You explain your reasoning, acknowledge trade-offs, and frame findings as opportunities. You're a senior colleague, not a judge." | "Frame every finding with context. Explain why it matters before saying what to change." |
+| C (Formal) | "Methodical and precise. You use technical terminology accurately, structure findings systematically, and distinguish between confirmed issues and observations." | "Use precise technical language. Categorise findings by severity. Avoid colloquialisms." |
+| D (Neutral) | "Objective and minimal. You report findings without editorialising. Your output is a list of observations, not a narrative." | "Report only. No personality. No recommendations beyond the finding itself." |
+
+## Step 5 — Q5: Tools
+
+Show the template's pre-selected tools and ask:
+```
+Suggested tools for this agent: {TEMPLATE default_tools}
+
+Add or remove any? Valid options: Read, Write, Edit, Bash, Grep, Glob
+(Say "looks good" to accept the defaults)
+```
+
+If the user requests a tool not in the valid list, respond:
+```
+"{requested}" is not a valid tool. Valid tools are: Read, Write, Edit, Bash, Grep, Glob.
+```
+Ask again until the list is valid.
+
+Store final list as `TOOLS`.
