@@ -1,10 +1,14 @@
 # Review Squad -- Complete Setup Guide
 
-**Version:** 3.3
+**Version:** 4.0
 **Last updated:** 2026-03-25
 **Requires:** Node.js 18+, Claude Code CLI with Agent tool support
 
 Portable instructions for the 6-agent full-lifecycle development system. This document contains everything needed to set up the Review Squad on a new machine: agent definitions, slash commands (including `/ship`), hooks, memory files, and workflow reference.
+
+### What's New in V4.0
+- **`/update` rewritten — no local clone required** — `/update` now pulls directly from GitHub via curl. Bootstrap with one `curl` command to get `update.md`, then run `/update` any time to sync. Version tracked in `~/.claude/review-squad-version`. First run syncs all files; incremental runs sync only added/modified files via the compare API.
+- **Setup simplified** — Step 6 is now "Install the `/update` command". The `~/.claude/review-squad-repo` config file and local git clone are no longer needed.
 
 ### What's New in V3
 - **`/ship` command** — Post-review shipping: generates stakeholder HTML presentation, creates PR, monitors CI, auto-fixes failures with agent-routed resolution (max 3 attempts). Emily and PM Cory gained `present` mode for content generation.
@@ -42,11 +46,13 @@ Portable instructions for the 6-agent full-lifecycle development system. This do
    - [Step 2: Remove old monolithic agent files (upgrading only)](#step-2-remove-old-monolithic-agent-files-upgrading-only)
    - [Step 3: Create all 25 mode-suffixed agent files](#step-3-create-all-25-mode-suffixed-agent-files)
    - [Step 4: Create command files](#step-4-create-command-files-and-gsd-variant)
-   - [Step 5: Add .review-squad/ to .gitignore](#step-5-add-review-squad-to-gitignore)
-   - [Step 6: Create the auto-fire hook](#step-6-create-the-auto-fire-hook)
-   - [Step 7: Create memory files](#step-7-create-memory-files)
-   - [Step 8: Verify installation](#step-8-verify-installation)
-   - [Step 9: Test with example commands](#step-9-test-with-example-commands)
+   - [Step 5: Copy the HTML presentation template](#step-5-copy-the-html-presentation-template)
+   - [Step 6: Install the /update command](#step-6-install-the-update-command)
+   - [Step 7: Add .review-squad/ to .gitignore](#step-7-add-review-squad-to-gitignore)
+   - [Step 8: Create the auto-fire hook](#step-8-create-the-auto-fire-hook)
+   - [Step 9: Create memory files](#step-9-create-memory-files)
+   - [Step 10: Verify installation](#step-10-verify-installation)
+   - [Step 11: Test with example commands](#step-11-test-with-example-commands)
 7. [Workflow Reference](#workflow-reference)
 8. [Auto-Fire Trigger Reference](#auto-fire-trigger-reference)
 9. [Two Memory Systems Explained](#two-memory-systems-explained)
@@ -238,7 +244,7 @@ done
 #    Stevey (3):         stevey-boy-choi-consult, stevey-boy-choi-implement,
 #                        stevey-boy-choi-review
 
-# 4. Create the 10 command files (Step 4 below)
+# 4. Create the 11 command files (Step 4 below)
 #    ~/.claude/commands/discuss.md
 #    ~/.claude/commands/research.md
 #    ~/.claude/commands/plan.md
@@ -248,29 +254,34 @@ done
 #    ~/.claude/commands/ship.md
 #    ~/.claude/commands/audit.md
 #    ~/.claude/commands/quick.md
+#    ~/.claude/commands/update.md
 #    ~/.claude/commands/gsd/review.md
 
 # 5. Copy the HTML presentation template (Step 5 below)
 #    ~/.claude/templates/ship-presentation.html
 
-# 6. Add .review-squad/ to your project's .gitignore
+# 6. Install the /update command (Step 6 below — one curl, then /update handles future syncs)
+curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update.md" \
+  -o ~/.claude/commands/update.md
 
-# 7. Create and register the auto-fire hook (Step 7 below)
+# 7. Add .review-squad/ to your project's .gitignore
+
+# 8. Create and register the auto-fire hook (Step 8 below)
 #    ~/.claude/hooks/review-squad-gate.js
 #    Add hook entry to ~/.claude/settings.json
 
-# 8. Create memory files in your Claude project memory directory (Step 8 below)
+# 9. Create memory files in your Claude project memory directory (Step 9 below)
 
-# 9. Verify installation
+# 10. Verify installation
 ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
 #    Should print 25
-ls ~/.claude/commands/*.md        # Should list 9 files (discuss, research, plan, consult, implement, review, ship, audit, quick)
+ls ~/.claude/commands/*.md        # Should list 10 files (discuss, research, plan, consult, implement, review, ship, audit, quick, update)
 ls ~/.claude/commands/gsd/*.md    # Should list 1 file
 ls ~/.claude/hooks/*.js           # Should include review-squad-gate.js
 grep review-squad ~/.claude/settings.json  # Should match
 ls ~/.claude/templates/ship-presentation.html  # Should exist
 
-# 10. Test it
+# 11. Test it
 #    /discuss Add a user profile page with avatar upload
 ```
 
@@ -312,18 +323,12 @@ ls ~/.claude/agents/emily.md 2>/dev/null && echo "WARNING: still present" || ech
 
 > **Scope note:** V3.1 uses 25 mode-specific files instead of 6 monolithic ones. Each file contains only the definition for one agent in one mode (~63–76% smaller per file). Copy agent files from the repo's `agents/` directory to `~/.claude/agents/`.
 
-If you have the repo cloned locally, you can bulk-copy instead of copying each file manually:
+**Recommended:** After a fresh install, run `/update` in Claude Code — it fetches all agent files from GitHub and handles future syncs automatically (see Step 6). For the initial bootstrap, you can also copy files individually from the blocks below.
 
 ```bash
-# Bulk copy from repo (adjust REPO_PATH to your clone location)
-REPO_PATH="$HOME/Claude/SubAgents"
-cp "$REPO_PATH"/agents/{emily,father-christmas,jared,nando,pm-cory,stevey-boy-choi}-*.md ~/.claude/agents/
-
-# Verify count — should print 25
+# Verify count after copying — should print 25
 ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
 ```
-
-Or create files individually at the indicated paths. Copy the content between the markdown fences exactly.
 
 > **Note on agent tools:** Agent frontmatter lists `tools:` that the agent itself needs (Read, Write, Edit, Bash, Grep, Glob). No agent lists `Agent` as a tool because agents do not spawn sub-agents -- the `/consult`, `/implement`, and `/review` command orchestrators are responsible for spawning agents via the Agent tool.
 
@@ -6271,7 +6276,7 @@ ls -la ~/.claude/agents/father-christmas-consult.md
 ls -la ~/.claude/agents/pm-cory-early.md
 ls -la ~/.claude/agents/stevey-boy-choi-review.md
 
-# 4. Check command files (should list 9 + 1 GSD)
+# 4. Check command files (should list 10 + 1 GSD)
 ls -la ~/.claude/commands/discuss.md
 ls -la ~/.claude/commands/research.md
 ls -la ~/.claude/commands/plan.md
@@ -6281,6 +6286,7 @@ ls -la ~/.claude/commands/review.md
 ls -la ~/.claude/commands/ship.md
 ls -la ~/.claude/commands/audit.md
 ls -la ~/.claude/commands/quick.md
+ls -la ~/.claude/commands/update.md
 ls -la ~/.claude/commands/gsd/review.md
 
 # 5. Check HTML template
