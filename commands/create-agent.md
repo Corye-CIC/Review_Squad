@@ -67,3 +67,67 @@ Each template defines: default_tools, focus_areas (3-5 bullets), role_framing.
 - focus_areas: (derived entirely from user's Q3 free-form description)
 
 </templates>
+
+<process>
+
+## Step 1 — Q1: Choose a template
+
+Ask:
+```
+Which type of agent do you want to create?
+
+A) Security reviewer — auth, injection, secrets, input validation
+B) Code quality reviewer — naming, structure, DRY, patterns
+C) Domain expert — business logic for a specific domain you define
+D) Documentation reviewer — accuracy, completeness, comment rot
+E) Performance reviewer — N+1 queries, memory, redundant calls
+F) Blank — start from scratch, you define everything
+```
+
+Store the selected template as `TEMPLATE`. Load its `default_tools`, `role_framing`, and `focus_areas` from the `<templates>` block above.
+
+## Step 2 — Q2: Name and validation
+
+Ask:
+```
+What should this agent be called?
+
+This becomes the filename (custom-{name}.md) and how you reference it in /quick.
+Keep it short, lowercase, hyphens only — e.g. payments-expert, api-contracts, hipaa-reviewer.
+```
+
+**Validate the input:**
+- Reject if it contains uppercase letters, spaces, or characters other than `a-z`, `0-9`, `-`
+- Reject if it starts or ends with a hyphen
+- If invalid, explain the rule and ask again
+
+**Check for existing file:**
+```bash
+ls "$HOME/.claude/agents/custom-{name}.md" 2>/dev/null
+```
+If it exists, warn immediately:
+```
+⚠️  ~/.claude/agents/custom-{name}.md already exists. Overwrite? (yes/no)
+```
+If "no" → return to Q2 and ask for a different name.
+If "yes" → set `OVERWRITE_APPROVED=true`.
+
+Store validated name as `NAME`. The filename will be `custom-{NAME}.md`. The frontmatter `name:` field will be `custom-{NAME}`. In prose and the `<role>` block, use bare `{NAME}` as the display name.
+
+## Step 3 — Q3: Specialization
+
+For all templates except `blank`, ask:
+```
+What should this agent focus on specifically?
+One or two sentences — e.g. "OAuth flows and JWT validation" or "payments processing and PCI compliance".
+```
+
+For `blank`, ask:
+```
+Describe this agent's role and what it should focus on.
+This defines everything — be as specific as you like.
+```
+
+Store as `SPECIALIZATION`.
+
+For `domain-expert` and `blank`: generate the `focus_areas` from `SPECIALIZATION` after Q3 is answered (3-5 relevant bullet points derived from what the user described). For all other templates, use the pre-defined `focus_areas` from `<templates>`, optionally refining the wording to reflect `SPECIALIZATION`.
