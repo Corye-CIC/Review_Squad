@@ -5,9 +5,10 @@
 //   - 35% remaining: WARNING (65% used — compact soon)
 //   - 25% remaining: CRITICAL (75% used — compact immediately)
 //
-// Context data is read from the statusline bridge file written by gsd-statusline.js
-// at /tmp/claude-ctx-{session_id}.json. PostToolUse hooks do not receive context_window
-// directly — the statusline hook (which does) writes it to a temp file each render.
+// Context data is read from the statusline bridge file at /tmp/claude-ctx-{session_id}.json.
+// PostToolUse hooks do not receive context_window directly — the statusline hook does.
+// review-squad-statusline.js writes this bridge file on every render. Configure it as
+// your statusLine in ~/.claude/settings.json to activate this hook.
 //
 // Debounce: fires at most once per 5 tool uses per threshold per session.
 // State tracked in /tmp/rs-ctx-{session_id}.json
@@ -31,8 +32,7 @@ process.stdin.on('end', () => {
     const data = JSON.parse(input);
     const sessionId = data.session_id || 'unknown';
 
-    // Read context data from the statusline bridge file
-    // gsd-statusline.js writes this on every statusline render
+    // Read context data from the bridge file written by review-squad-statusline.js
     const bridgePath = path.join(os.tmpdir(), `claude-ctx-${sessionId}.json`);
     let remaining = null;
     if (fs.existsSync(bridgePath)) {

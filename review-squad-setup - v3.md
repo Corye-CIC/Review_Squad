@@ -275,7 +275,7 @@ curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands
 # 10. Verify installation
 ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
 #    Should print 25
-ls ~/.claude/commands/*.md        # Should list 10 files (discuss, research, plan, consult, implement, review, ship, audit, quick, update)
+ls ~/.claude/commands/*.md        # Should list 10 files (discuss, research, plan, consult, implement, review, ship, audit, quick, update-reviewsquad)
 ls ~/.claude/hooks/*.js           # Should include review-squad-gate.js and review-squad-context-monitor.js
 grep review-squad ~/.claude/settings.json  # Should match
 ls ~/.claude/templates/ship-presentation.html  # Should exist
@@ -6160,7 +6160,7 @@ Warns when the context window approaches limits. Reads context data from the bri
 
 **Debounce:** fires at most once per 5 tool uses per threshold per session. State tracked in `/tmp/rs-ctx-{session_id}.json`.
 
-**Dependency:** requires the statusline hook (`gsd-statusline.js`) to be active and have rendered at least once in the session. Without the bridge file, the hook exits silently.
+**Dependency:** requires `review-squad-statusline.js` to be configured as your `statusLine`. That hook writes `/tmp/claude-ctx-{session_id}.json` on every render, which the context monitor reads. Without the bridge file, the monitor exits silently.
 
 ---
 

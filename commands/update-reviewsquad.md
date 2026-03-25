@@ -57,7 +57,7 @@ curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands"
 
 ```
 
-Add to the list: `templates/ship-presentation.html`, `hooks/review-squad-gate.js`, and `hooks/review-squad-context-monitor.js`
+Add to the list: `templates/ship-presentation.html`, `hooks/review-squad-gate.js`, `hooks/review-squad-context-monitor.js`, and `hooks/review-squad-statusline.js`
 
 Set `FIRST_RUN=true`.
 
@@ -76,7 +76,7 @@ for f in d.get('files', []):
     name = f['filename']
     if re.match(r'^agents/[^/]+\.md$', name): print(name)
     elif re.match(r'^commands/[^/]+\.md$', name): print(name)
-    elif name in ('templates/ship-presentation.html', 'hooks/review-squad-gate.js', 'hooks/review-squad-context-monitor.js'): print(name)
+    elif name in ('templates/ship-presentation.html', 'hooks/review-squad-gate.js', 'hooks/review-squad-context-monitor.js', 'hooks/review-squad-statusline.js'): print(name)
 "
 ```
 
@@ -121,6 +121,7 @@ For each file in `FILES_TO_SYNC`, download it to the matching destination. **For
 - `templates/ship-presentation.html` → `~/.claude/templates/ship-presentation.html`
 - `hooks/review-squad-gate.js` → `~/.claude/hooks/review-squad-gate.js`
 - `hooks/review-squad-context-monitor.js` → `~/.claude/hooks/review-squad-context-monitor.js`
+- `hooks/review-squad-statusline.js` → `~/.claude/hooks/review-squad-statusline.js`
 
 Use `curl -sf` with `-o` for each download. If any download fails (non-zero exit), report the failure and continue with the remaining files — do not abort the entire sync.
 
@@ -160,7 +161,7 @@ Note: the following files were removed from the repo but NOT deleted from ~/.cla
 If `HOOK_CHANGED=true`, append:
 ```
 NOTICE: hooks/review-squad-gate.js was updated. Verify the hook wiring in settings.json
-still points to the correct path. Hook wiring is NOT auto-updated by /update.
+still points to the correct path. Hook wiring is NOT auto-updated by /update-reviewsquad.
 Check: cat ~/.claude/settings.json | grep review-squad
 ```
 
@@ -171,7 +172,7 @@ Check: cat ~/.claude/settings.json | grep review-squad
 - [ ] Reads version from ~/.claude/review-squad-version; exits cleanly if already up to date
 - [ ] First run: downloads all tracked files via contents API (no prior version needed)
 - [ ] Incremental: uses compare API to download only added/modified tracked files
-- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), templates/ship-presentation.html, hooks/review-squad-gate.js, hooks/review-squad-context-monitor.js
+- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), templates/ship-presentation.html, hooks/review-squad-gate.js, hooks/review-squad-context-monitor.js, hooks/review-squad-statusline.js
 - [ ] Never auto-deletes files from ~/.claude/ — deletions reported only
 - [ ] Never overwrites files in ~/.claude/agents/ whose basename starts with `custom-`
 - [ ] Never touches GSD agents or other non-Review-Squad files

@@ -429,6 +429,12 @@ Two PostToolUse hooks ship with the squad:
 - **WARNING** at 65% used (35% remaining) — suggests `/compact Focus on [active feature]`
 - **CRITICAL** at 75% used (25% remaining) — urgent prompt to compact before auto-compaction causes data loss
 - Debounces per 5 tool uses per threshold so it doesn't nag
+- Requires `review-squad-statusline.js` to be configured as your `statusLine` (it writes the bridge file that the monitor reads)
+
+**`hooks/review-squad-statusline.js`** is the companion statusline that feeds context data to the monitor:
+- Displays model, working directory, and a context usage bar in the status line
+- Writes `/tmp/claude-ctx-{session_id}.json` on every render so the context monitor can read it
+- Configure as your `statusLine` in `~/.claude/settings.json` — see Installation for details
 
 ## Installation
 
@@ -541,6 +547,7 @@ commands/                          # Lifecycle commands (10 commands)
 hooks/
   review-squad-gate.js             # PostToolUse hook — review advisory at wrap-up points
   review-squad-context-monitor.js  # PostToolUse hook — context window WARNING/CRITICAL alerts
+  review-squad-statusline.js       # statusLine hook — context bar + bridge file for monitor
 templates/
   ship-presentation.html           # Self-contained HTML reference template
 services/
