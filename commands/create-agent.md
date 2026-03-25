@@ -252,3 +252,18 @@ Use it with: /quick <task> custom-{NAME}
 ```
 
 </process>
+
+<success_criteria>
+- [ ] Command runs with no arguments — all information gathered via Q&A
+- [ ] All 6 templates produce a working, well-structured agent file
+- [ ] Q2 name input is validated — rejects uppercase, spaces, special characters, leading/trailing hyphens
+- [ ] Q2 checks for existing custom-{name}.md and triggers overwrite warning immediately
+- [ ] Q5 tool list defaults from template; invalid tool names are rejected with the valid list
+- [ ] Preview shown before any file is written
+- [ ] Change requests regenerate the preview; structural constraints re-enforced on each regeneration
+- [ ] Overwrite warning shown when custom-{name}.md exists; returns to Q2 on "no"
+- [ ] name: frontmatter field is always custom-{NAME} — matches filename exactly
+- [ ] Written agent activates in /quick via: /quick <task> custom-{NAME}
+- [ ] Agent and AskUserQuestion are not offered in Q5 tool selection
+- [ ] blank template Q3 prompt asks for free-form role description, not specialization
+</success_criteria>
