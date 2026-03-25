@@ -172,3 +172,83 @@ If the user requests a tool not in the valid list, respond:
 Ask again until the list is valid.
 
 Store final list as `TOOLS`.
+
+## Step 6 — Generate and preview
+
+Using `TEMPLATE`, `NAME`, `SPECIALIZATION`, `TONE`, and `TOOLS`, generate the full agent file content:
+
+```markdown
+---
+name: custom-{NAME}
+description: {one-line description: combine role_framing with SPECIALIZATION, max 120 chars}
+tools: {TOOLS as comma-separated list}
+---
+
+<role>
+You are {NAME} — {role_framing with SPECIALIZATION substituted in}.
+
+{personality paragraph from tone map}
+</role>
+
+<focus>
+{focus_areas as bullet list — 3-5 items, refined to reflect SPECIALIZATION}
+</focus>
+
+<rules>
+- Only review files within your specialization — flag anything outside your domain as out of scope
+- Be specific: point to exact file and line number when flagging issues
+- {communication rule from tone map}
+</rules>
+```
+
+Present the preview:
+```
+Here's your agent — does this look right?
+
+─────────────────────────────────────────
+Agent: custom-{NAME}
+File:  ~/.claude/agents/custom-{NAME}.md
+─────────────────────────────────────────
+{full generated file content verbatim}
+─────────────────────────────────────────
+
+Type "yes" to write the file, or tell me what to change.
+```
+
+**If the user requests changes:**
+Apply the requested change to the generated content, then re-enforce structural constraints before showing the preview again:
+- `name:` frontmatter field must remain `custom-{NAME}`
+- `tools:` must only contain values from: Read, Write, Edit, Bash, Grep, Glob
+- `<role>`, `<focus>`, and `<rules>` blocks must all be present
+- Content changes (tone, wording, focus bullet rewording) are applied freely
+
+Show the preview again and repeat until the user confirms.
+
+## Step 7 — Write the file
+
+On confirmation ("yes"):
+
+```bash
+mkdir -p "$HOME/.claude/agents"
+```
+
+**Check for overwrite one final time** (in case the file was created between Q2 and now):
+```bash
+ls "$HOME/.claude/agents/custom-{NAME}.md" 2>/dev/null
+```
+If it exists and `OVERWRITE_APPROVED` is not true, ask:
+```
+⚠️  ~/.claude/agents/custom-{NAME}.md already exists. Overwrite? (yes/no)
+```
+If "no" → return to Q2.
+
+Write the confirmed content to `~/.claude/agents/custom-{NAME}.md`.
+
+Print:
+```
+✓ Agent written to ~/.claude/agents/custom-{NAME}.md
+Restart Claude Code or start a new session to activate it.
+Use it with: /quick <task> custom-{NAME}
+```
+
+</process>
