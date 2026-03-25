@@ -19,6 +19,11 @@ LATEST=$(curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/commits/m
 
 If the curl command fails or `LATEST` is empty, stop: `"Cannot reach GitHub API. Check your internet connection and try again."`
 
+Validate that `LATEST` is a 40-character hex string:
+```bash
+[[ "$LATEST" =~ ^[0-9a-f]{40}$ ]] || stop "Unexpected SHA format from GitHub API."
+```
+
 ```bash
 LATEST_SHORT=${LATEST:0:7}
 ```
@@ -28,6 +33,11 @@ LATEST_SHORT=${LATEST:0:7}
 ```bash
 CURRENT=$(cat ~/.claude/review-squad-version 2>/dev/null)
 CURRENT_SHORT=${CURRENT:0:7}
+```
+
+If `CURRENT` is non-empty, validate it is a 40-character hex string:
+```bash
+[[ -z "$CURRENT" || "$CURRENT" =~ ^[0-9a-f]{40}$ ]] || stop "Corrupt version file: ~/.claude/review-squad-version. Delete it and re-run."
 ```
 
 If `CURRENT` is non-empty and equals `LATEST`, print `"Already up to date ($LATEST_SHORT)."` and stop.
@@ -106,10 +116,9 @@ mkdir -p ~/.claude/agents ~/.claude/commands ~/.claude/commands/gsd ~/.claude/te
 
 Raw base URL: `https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/`
 
-Skip any file where the destination basename starts with `custom-`:
-- `agents/custom-*.md` — user-created agents; never overwrite
+Skip any file in the `agents/` category whose destination basename starts with `custom-` — these are user-created agents that must never be overwritten.
 
-For each file in `FILES_TO_SYNC`, **skip it if its basename starts with `custom-`**, then download the remainder to the matching destination:
+For each file in `FILES_TO_SYNC`, download it to the matching destination. **For `agents/NAME.md` entries only: skip if NAME starts with `custom-`.**
 - `agents/NAME.md` → `~/.claude/agents/NAME.md`  *(skip if NAME starts with `custom-`)*
 - `commands/NAME.md` → `~/.claude/commands/NAME.md`
 - `commands/gsd/NAME.md` → `~/.claude/commands/gsd/NAME.md`

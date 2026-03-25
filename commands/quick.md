@@ -37,18 +37,19 @@ Valid modes: `implement`, `review`, `consult`, `audit` (emily uses a different s
 
 Before any alias validation or mode checking, scan the last whitespace-separated segment of `$ARGUMENTS` for custom agent tokens:
 
-1. Strip a trailing `+nando` from `$ARGUMENTS` first (independent of the main parsing strip — both must happen). Take the last whitespace-separated segment of the result and split on commas.
-2. For each token, strip any `:mode` suffix to get the bare name.
-3. Check if the bare name starts with `custom-` **and** `~/.claude/agents/{bare-name}.md` exists:
+1. Strip a trailing `+nando` from `$ARGUMENTS` first (independent of the main parsing strip — both must happen). If stripped, set `HAS_NANDO=true`. Take the last whitespace-separated segment of the result and split on commas.
+2. For each token, strip any `:mode` suffix to get the bare name. Do not validate the mode value — it is discarded regardless of content.
+3. Validate the bare name: it must start with `custom-` **and** match `^custom-[a-zA-Z0-9_-]+$`. If it starts with `custom-` but fails the full pattern (e.g. `custom-../../etc/passwd`), stop: `"Invalid agent name: {token}. Custom agent names must be lowercase letters, digits, and hyphens only."`
+4. Check if `~/.claude/agents/$bare_name.md` exists:
    ```bash
-   [ -f "$HOME/.claude/agents/{bare-name}.md" ]
+   [ -f "$HOME/.claude/agents/$bare_name.md" ]
    ```
-4. If **any** token is a confirmed custom agent:
+5. If **any** token is a confirmed custom agent:
    - If the token had a `:mode` suffix, emit: `"Note: {bare-name} is a single-mode agent — :{mode} suffix ignored."`
-   - Treat ALL confirmed custom tokens as **Path 3 explicit dispatch** with `subagent_type: {bare-name}` (no mode suffix appended).
-   - Non-custom tokens in the same list must have explicit `:mode` suffixes (standard Path 3 rule). If any don't, stop: `"Mixed agent list: when using custom agents, all squad agents must have explicit modes (e.g. jared:review)."`
+   - **5a:** Treat ALL confirmed custom tokens as **Path 3 explicit dispatch** with `subagent_type: {bare-name}` (no mode suffix appended).
+   - **5b:** Non-custom tokens in the same list must have explicit `:mode` suffixes (standard Path 3 rule). If any don't, stop: `"Mixed agent list: when using custom agents, all squad agents must have explicit modes (e.g. jared:review)."`
    - Skip all remaining parsing steps. Go directly to Path 3 execution.
-5. If **no** custom agents found, continue to normal `## Argument Parsing` below.
+6. If **no** custom agents found, continue to normal `## Argument Parsing` below.
 
 ## Argument Parsing
 
