@@ -5,6 +5,10 @@
 //   - 35% remaining: WARNING (65% used — compact soon)
 //   - 25% remaining: CRITICAL (75% used — compact immediately)
 //
+// Context data is read from the statusline bridge file written by gsd-statusline.js
+// at /tmp/claude-ctx-{session_id}.json. PostToolUse hooks do not receive context_window
+// directly — the statusline hook (which does) writes it to a temp file each render.
+//
 // Debounce: fires at most once per 5 tool uses per threshold per session.
 // State tracked in /tmp/rs-ctx-{session_id}.json
 
@@ -26,11 +30,22 @@ process.stdin.on('end', () => {
   try {
     const data = JSON.parse(input);
     const sessionId = data.session_id || 'unknown';
-    const contextWindow = data.context_window || {};
-    const remaining = contextWindow.remaining_percentage;
 
-    // No context window data — nothing to do
-    if (typeof remaining !== 'number') {
+    // Read context data from the statusline bridge file
+    // gsd-statusline.js writes this on every statusline render
+    const bridgePath = path.join(os.tmpdir(), `claude-ctx-${sessionId}.json`);
+    let remaining = null;
+    if (fs.existsSync(bridgePath)) {
+      try {
+        const bridge = JSON.parse(fs.readFileSync(bridgePath, 'utf8'));
+        if (typeof bridge.remaining_percentage === 'number') {
+          remaining = bridge.remaining_percentage;
+        }
+      } catch (_) {}
+    }
+
+    // No context data available (statusline not active or not yet rendered)
+    if (remaining === null) {
       process.exit(0);
     }
 
@@ -73,13 +88,13 @@ process.stdin.on('end', () => {
     fs.writeFileSync(stateFile, JSON.stringify(state));
 
     const used = (100 - remaining).toFixed(0);
-    const rem = remaining.toFixed(0);
+    const rem = Math.round(remaining);
 
     const message = level === 'CRITICAL'
       ? `Context window CRITICAL: ${used}% used, ${rem}% remaining. ` +
         'Run /compact Focus on [active feature] now to avoid auto-compaction data loss. ' +
         'Before compacting, save any critical values (stack traces, config, function names) to a file.'
-      : `Context window WARNING: ${used}% used, ${rem}% remaining. ` +
+      : `Context window WARNING: ${used}% used, ~${rem}% remaining. ` +
         'Consider running /compact Focus on [active feature] soon to preserve context quality.';
 
     process.stdout.write(JSON.stringify({

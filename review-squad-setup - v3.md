@@ -265,9 +265,10 @@ curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands
 
 # 7. Add .review-squad/ to your project's .gitignore
 
-# 8. Create and register the auto-fire hook (Step 8 below)
+# 8. Create and register the hooks (Step 8 below)
 #    ~/.claude/hooks/review-squad-gate.js
-#    Add hook entry to ~/.claude/settings.json
+#    ~/.claude/hooks/review-squad-context-monitor.js
+#    Add both hook entries to ~/.claude/settings.json
 
 # 9. Create memory files in your Claude project memory directory (Step 9 below)
 
@@ -275,7 +276,7 @@ curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands
 ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
 #    Should print 25
 ls ~/.claude/commands/*.md        # Should list 10 files (discuss, research, plan, consult, implement, review, ship, audit, quick, update)
-ls ~/.claude/hooks/*.js           # Should include review-squad-gate.js
+ls ~/.claude/hooks/*.js           # Should include review-squad-gate.js and review-squad-context-monitor.js
 grep review-squad ~/.claude/settings.json  # Should match
 ls ~/.claude/templates/ship-presentation.html  # Should exist
 
@@ -5853,7 +5854,15 @@ Add the hook to `~/.claude/settings.json`. If the file does not exist, create it
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/yourname/.claude/hooks/review-squad-gate.js\""  ← REPLACE yourname with your actual username
+            "command": "node \"/Users/yourname/.claude/hooks/review-squad-context-monitor.js\""  ← REPLACE yourname
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/yourname/.claude/hooks/review-squad-gate.js\""  ← REPLACE yourname
           }
         ]
       }
@@ -5864,11 +5873,13 @@ Add the hook to `~/.claude/settings.json`. If the file does not exist, create it
 
 > **Why the double-nested `hooks` structure?** Claude Code's settings schema uses `hooks` at two levels: the top-level `hooks` object maps event names (like `PostToolUse`) to an array of hook groups. Each hook group has its own `hooks` array containing the actual command entries. This is the documented schema -- a flat structure will silently fail. You can verify the correct structure by running `cat ~/.claude/settings.json` after setup.
 
-To compute your absolute path programmatically:
+To compute your absolute paths programmatically:
 
 ```bash
+echo "node \"$(echo $HOME)/.claude/hooks/review-squad-context-monitor.js\""
 echo "node \"$(echo $HOME)/.claude/hooks/review-squad-gate.js\""
-# Output: node "/Users/yourname/.claude/hooks/review-squad-gate.js"
+# Output: node "/Users/yourname/.claude/hooks/review-squad-context-monitor.js"
+#         node "/Users/yourname/.claude/hooks/review-squad-gate.js"
 ```
 
 ---
@@ -5994,11 +6005,12 @@ ls -la ~/.claude/commands/update-reviewsquad.md
 # 5. Check HTML template
 ls -la ~/.claude/templates/ship-presentation.html
 
-# 6. Check hook (should exist and be executable)
+# 6. Check hooks (both should exist)
 ls -la ~/.claude/hooks/review-squad-gate.js
+ls -la ~/.claude/hooks/review-squad-context-monitor.js
 
-# 7. Check settings.json has the hook registered (should match)
-grep review-squad-gate ~/.claude/settings.json
+# 7. Check settings.json has both hooks registered (should match twice)
+grep review-squad ~/.claude/settings.json
 
 # 8. Check memory files exist (adjust path for your project)
 PROJECT_PATH=$(pwd)
@@ -6131,7 +6143,28 @@ Note: For smaller tasks, you can skip directly to step 5 (/consult).
 
 ---
 
-## Auto-Fire Trigger Reference
+## Hook Reference
+
+### Review Gate (`review-squad-gate.js`)
+
+Monitors tool usage and fires review advisories at natural wrap-up points:
+
+### Context Monitor (`review-squad-context-monitor.js`)
+
+Warns when the context window approaches limits. Reads context data from the bridge file written by `gsd-statusline.js` at `/tmp/claude-ctx-{session_id}.json` (PostToolUse hooks do not receive context window data directly).
+
+| Level | Remaining | Action |
+|-------|-----------|--------|
+| WARNING | ≤ 35% | Consider running `/compact Focus on [active feature]` |
+| CRITICAL | ≤ 25% | Run `/compact` immediately — auto-compaction is imminent |
+
+**Debounce:** fires at most once per 5 tool uses per threshold per session. State tracked in `/tmp/rs-ctx-{session_id}.json`.
+
+**Dependency:** requires the statusline hook (`gsd-statusline.js`) to be active and have rendered at least once in the session. Without the bridge file, the hook exits silently.
+
+---
+
+### Review Gate Trigger Reference
 
 The `review-squad-gate.js` hook monitors tool usage and fires review advisories based on these triggers:
 
@@ -6225,8 +6258,9 @@ cp agents/*.md ~/.claude/agents/
 # Update all 9 command files
 cp commands/*.md ~/.claude/commands/
 
-# Update the hook
+# Update the hooks
 cp hooks/review-squad-gate.js ~/.claude/hooks/review-squad-gate.js
+cp hooks/review-squad-context-monitor.js ~/.claude/hooks/review-squad-context-monitor.js
 ```
 
 No restart required — Claude Code reads agent and command files on each invocation. The hook takes effect immediately.
@@ -6260,16 +6294,18 @@ rm -f ~/.claude/agents/stevey-boy-choi-{consult,implement,review}.md
 # Remove all 9 command files
 rm -f ~/.claude/commands/{audit,consult,discuss,implement,plan,quick,research,review,ship}.md
 
-# Remove hook
+# Remove hooks
 rm -f ~/.claude/hooks/review-squad-gate.js
+rm -f ~/.claude/hooks/review-squad-context-monitor.js
 
 # Remove session state
 rm -f /tmp/review-squad-*.json
+rm -f /tmp/rs-ctx-*.json
 
 # Remove project-local squad memory (run from project root)
 rm -rf .review-squad/
 ```
 
-After removing the files, also remove the `review-squad-gate.js` entry from `~/.claude/settings.json` (edit the `hooks.PostToolUse` array) and optionally remove the memory files from `~/.claude/projects/<encoded-path>/memory/`.
+After removing the files, also remove both hook entries from `~/.claude/settings.json` (edit the `hooks.PostToolUse` array) and optionally remove the memory files from `~/.claude/projects/<encoded-path>/memory/`.
 
 To reset without uninstalling (fresh start for a project), just delete `.review-squad/` from the project root. PM Cory will recreate it on the next review.
