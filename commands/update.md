@@ -106,8 +106,11 @@ mkdir -p ~/.claude/agents ~/.claude/commands ~/.claude/commands/gsd ~/.claude/te
 
 Raw base URL: `https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/`
 
-For each file in `FILES_TO_SYNC`, download it to the matching destination:
-- `agents/NAME.md` → `~/.claude/agents/NAME.md`
+Skip any file where the destination basename starts with `custom-`:
+- `agents/custom-*.md` — user-created agents; never overwrite
+
+For each file in `FILES_TO_SYNC`, **skip it if its basename starts with `custom-`**, then download the remainder to the matching destination:
+- `agents/NAME.md` → `~/.claude/agents/NAME.md`  *(skip if NAME starts with `custom-`)*
 - `commands/NAME.md` → `~/.claude/commands/NAME.md`
 - `commands/gsd/NAME.md` → `~/.claude/commands/gsd/NAME.md`
 - `templates/ship-presentation.html` → `~/.claude/templates/ship-presentation.html`
@@ -164,6 +167,7 @@ Check: cat ~/.claude/settings.json | grep review-squad
 - [ ] Incremental: uses compare API to download only added/modified tracked files
 - [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), commands/gsd/*.md, templates/ship-presentation.html, hooks/review-squad-gate.js
 - [ ] Never auto-deletes files from ~/.claude/ — deletions reported only
+- [ ] Never overwrites files in ~/.claude/agents/ whose basename starts with `custom-`
 - [ ] Never touches GSD agents or other non-Review-Squad files
 - [ ] Individual download failures are reported but do not abort the sync
 - [ ] Saves new SHA to ~/.claude/review-squad-version after sync
