@@ -91,6 +91,31 @@ For each finding: source agent, file:line if applicable, concrete recommended ac
 Resolve any conflicts between FC and Jared. If they agree, say so — it strengthens the finding.
 ```
 
+## Step 3.5: Persist findings
+
+After Nando completes, spawn `pm-cory-review` to persist findings to the squad's memory.
+
+PM Cory's prompt:
+```
+You are persisting audit findings for the Review Squad's collective memory.
+
+Working directory: {cwd}
+Squad directory: {SQUAD_DIR}
+Audit scope: {arguments_or_whole_codebase}
+
+=== NANDO — Consolidated Audit ===
+{nando_output}
+
+1. Append one JSON line to {SQUAD_DIR}/learnings.jsonl (create file if absent):
+   {"date": "<today ISO>", "type": "audit", "scope": "<scope>", "critical_count": <n>, "high_count": <n>, "summary": "<1-2 sentence summary of most important findings>"}
+
+2. Append Nando's full report to {SQUAD_DIR}/review-history.md (create file if absent):
+   ## Audit — <today ISO> — <scope>
+   {nando_output}
+
+Do not summarise or editorialize beyond the learnings.jsonl summary line.
+```
+
 ## Step 4: Present results
 
 Display the consolidated audit report.
@@ -118,5 +143,6 @@ Save the audit report to `${SQUAD_DIR}/audit-<date>.md` for reference.
 - [ ] Nando synthesized findings with priority tiers
 - [ ] Conflicts between agents resolved
 - [ ] Audit report saved to .review-squad/
+- [ ] Audit findings persisted to .review-squad/learnings.jsonl and review-history.md
 - [ ] Clear next steps presented
 </success_criteria>

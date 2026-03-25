@@ -2,6 +2,8 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+> **V3.6** — Context monitor hook + GSD removal + audit memory persistence. New `review-squad-context-monitor.js` hook warns at 65% context used (WARNING) and 75% (CRITICAL) so you know when to `/compact` before auto-compaction data loss. GSD workflow integration removed — the Review Squad is now a standalone tool with no external dependencies. `/audit` now persists findings to `.review-squad/learnings.jsonl` and `review-history.md` via PM Cory after each audit. `/update-reviewsquad` syncs the new context monitor hook alongside the gate hook.
+>
 > **V3.5** — `/create-agent` — interactively build a custom agent via 5-question Q&A. Pick a template (security, quality, domain expert, docs, performance, or blank), name it, specialise it, pick a tone and tools. Preview before write. Custom agents use a `custom-` prefix so `/update` never overwrites them, and `/quick` dispatches them directly: `/quick <task> custom-{name}`.
 >
 > **V3.4** — `/update` rewritten to use curl. No local clone required: one `curl` installs the command, then `/update` pulls everything from GitHub directly. Version tracking via `~/.claude/review-squad-version`; first run syncs all files, incremental runs sync only what changed.
@@ -416,12 +418,17 @@ This directory is gitignored — it's local session state, not portable.
 
 ## Review Squad Gate (Hook)
 
-`hooks/review-squad-gate.js` is a PostToolUse hook that monitors coding sessions and suggests running the review squad at natural wrap-up points:
+Two PostToolUse hooks ship with the squad:
 
-- **GSD mode:** Fires on phase completion commits
-- **Standard mode:** Fires on git commit/add, test runner invocation, or 5+ files edited followed by a build command
-- **Debounce:** 10-minute cooldown between advisories
-- **PR monitoring:** Detects `pr-failure.md`, `pr-success.md`, and `pr-timeout.md` from the async watcher and surfaces them in the next session
+**`hooks/review-squad-gate.js`** monitors coding sessions and suggests running the review squad at natural wrap-up points:
+- Fires on git commit/add, test runner invocation, or 5+ files edited followed by a build command
+- 10-minute debounce between advisories
+- Detects `pr-failure.md`, `pr-success.md`, and `pr-timeout.md` from the async watcher and surfaces them in the next session
+
+**`hooks/review-squad-context-monitor.js`** warns when the context window approaches limits:
+- **WARNING** at 65% used (35% remaining) — suggests `/compact Focus on [active feature]`
+- **CRITICAL** at 75% used (25% remaining) — urgent prompt to compact before auto-compaction causes data loss
+- Debounces per 5 tool uses per threshold so it doesn't nag
 
 ## Installation
 
@@ -449,13 +456,20 @@ This directory is gitignored — it's local session state, not portable.
    cp templates/ship-presentation.html ~/.claude/templates/
    ```
 
-4. Install the hook — add to your `.claude/settings.json` under `hooks.PostToolUse`:
+4. Install the hooks — add both to your `.claude/settings.json` under `hooks.PostToolUse`:
    ```json
    {
      "hooks": {
        "PostToolUse": [
          {
-           "matcher": "",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "node /path/to/hooks/review-squad-context-monitor.js"
+             }
+           ]
+         },
+         {
            "hooks": [
              {
                "type": "command",
@@ -525,7 +539,8 @@ commands/                          # Lifecycle commands (10 commands)
   create-agent.md                  #   Interactive custom agent builder
   update-reviewsquad.md            #   Sync latest squad from GitHub via curl
 hooks/
-  review-squad-gate.js             # PostToolUse hook for review advisory
+  review-squad-gate.js             # PostToolUse hook — review advisory at wrap-up points
+  review-squad-context-monitor.js  # PostToolUse hook — context window WARNING/CRITICAL alerts
 templates/
   ship-presentation.html           # Self-contained HTML reference template
 services/

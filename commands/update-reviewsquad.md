@@ -6,7 +6,7 @@ allowed-tools:
   - Bash
 ---
 <objective>
-Pull the latest Review Squad release from GitHub via curl and sync updated files into ~/.claude/. Shows exactly which files changed. Never touches GSD agents or any non-Review-Squad files. No local clone required.
+Pull the latest Review Squad release from GitHub via curl and sync updated files into ~/.claude/. Shows exactly which files changed. Never touches custom agents or any non-Review-Squad files. No local clone required.
 </objective>
 
 <process>
@@ -55,11 +55,9 @@ curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/agents" \
 curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands" \
   | python3 -c "import json,sys; [print('commands/'+f['name']) for f in json.load(sys.stdin) if f['type']=='file' and f['name'].endswith('.md')]"
 
-curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands/gsd" \
-  | python3 -c "import json,sys; [print('commands/gsd/'+f['name']) for f in json.load(sys.stdin) if f['type']=='file' and f['name'].endswith('.md')]"
 ```
 
-Add to the list: `templates/ship-presentation.html` and `hooks/review-squad-gate.js`
+Add to the list: `templates/ship-presentation.html`, `hooks/review-squad-gate.js`, and `hooks/review-squad-context-monitor.js`
 
 Set `FIRST_RUN=true`.
 
@@ -78,8 +76,7 @@ for f in d.get('files', []):
     name = f['filename']
     if re.match(r'^agents/[^/]+\.md$', name): print(name)
     elif re.match(r'^commands/[^/]+\.md$', name): print(name)
-    elif re.match(r'^commands/gsd/[^/]+\.md$', name): print(name)
-    elif name in ('templates/ship-presentation.html', 'hooks/review-squad-gate.js'): print(name)
+    elif name in ('templates/ship-presentation.html', 'hooks/review-squad-gate.js', 'hooks/review-squad-context-monitor.js'): print(name)
 "
 ```
 
@@ -111,7 +108,7 @@ Store as `DELETED_FILES`.
 
 Ensure destination directories exist:
 ```bash
-mkdir -p ~/.claude/agents ~/.claude/commands ~/.claude/commands/gsd ~/.claude/templates ~/.claude/hooks
+mkdir -p ~/.claude/agents ~/.claude/commands ~/.claude/templates ~/.claude/hooks
 ```
 
 Raw base URL: `https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/`
@@ -121,9 +118,9 @@ Skip any file in the `agents/` category whose destination basename starts with `
 For each file in `FILES_TO_SYNC`, download it to the matching destination. **For `agents/NAME.md` entries only: skip if NAME starts with `custom-`.**
 - `agents/NAME.md` → `~/.claude/agents/NAME.md`  *(skip if NAME starts with `custom-`)*
 - `commands/NAME.md` → `~/.claude/commands/NAME.md`
-- `commands/gsd/NAME.md` → `~/.claude/commands/gsd/NAME.md`
 - `templates/ship-presentation.html` → `~/.claude/templates/ship-presentation.html`
 - `hooks/review-squad-gate.js` → `~/.claude/hooks/review-squad-gate.js`
+- `hooks/review-squad-context-monitor.js` → `~/.claude/hooks/review-squad-context-monitor.js`
 
 Use `curl -sf` with `-o` for each download. If any download fails (non-zero exit), report the failure and continue with the remaining files — do not abort the entire sync.
 
@@ -174,7 +171,7 @@ Check: cat ~/.claude/settings.json | grep review-squad
 - [ ] Reads version from ~/.claude/review-squad-version; exits cleanly if already up to date
 - [ ] First run: downloads all tracked files via contents API (no prior version needed)
 - [ ] Incremental: uses compare API to download only added/modified tracked files
-- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), commands/gsd/*.md, templates/ship-presentation.html, hooks/review-squad-gate.js
+- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), templates/ship-presentation.html, hooks/review-squad-gate.js, hooks/review-squad-context-monitor.js
 - [ ] Never auto-deletes files from ~/.claude/ — deletions reported only
 - [ ] Never overwrites files in ~/.claude/agents/ whose basename starts with `custom-`
 - [ ] Never touches GSD agents or other non-Review-Squad files

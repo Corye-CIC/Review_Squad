@@ -45,7 +45,7 @@ Portable instructions for the 6-agent full-lifecycle development system. This do
    - [Step 1: Create the agents directory](#step-1-create-the-agents-directory)
    - [Step 2: Remove old monolithic agent files (upgrading only)](#step-2-remove-old-monolithic-agent-files-upgrading-only)
    - [Step 3: Create all 25 mode-suffixed agent files](#step-3-create-all-25-mode-suffixed-agent-files)
-   - [Step 4: Create command files](#step-4-create-command-files-and-gsd-variant)
+   - [Step 4: Create command files](#step-4-create-command-files)
    - [Step 5: Copy the HTML presentation template](#step-5-copy-the-html-presentation-template)
    - [Step 6: Install the /update command](#step-6-install-the-update-command)
    - [Step 7: Add .review-squad/ to .gitignore](#step-7-add-review-squad-to-gitignore)
@@ -221,7 +221,7 @@ If you are setting up the Review Squad for the first time, here is the minimal c
 
 ```bash
 # 1. Create directories
-mkdir -p ~/.claude/agents ~/.claude/commands/gsd ~/.claude/hooks
+mkdir -p ~/.claude/agents ~/.claude/commands ~/.claude/hooks
 
 # 2. Remove old monolithic agent files (skip if fresh install)
 #    V3.1 replaced 6 monolithic files with 25 mode-suffixed files.
@@ -255,7 +255,6 @@ done
 #    ~/.claude/commands/audit.md
 #    ~/.claude/commands/quick.md
 #    ~/.claude/commands/update-reviewsquad.md
-#    ~/.claude/commands/gsd/review.md
 
 # 5. Copy the HTML presentation template (Step 5 below)
 #    ~/.claude/templates/ship-presentation.html
@@ -276,7 +275,6 @@ curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands
 ls ~/.claude/agents/*-*.md | grep -E "(emily|father-christmas|jared|nando|pm-cory|stevey)" | wc -l
 #    Should print 25
 ls ~/.claude/commands/*.md        # Should list 10 files (discuss, research, plan, consult, implement, review, ship, audit, quick, update)
-ls ~/.claude/commands/gsd/*.md    # Should list 1 file
 ls ~/.claude/hooks/*.js           # Should include review-squad-gate.js
 grep review-squad ~/.claude/settings.json  # Should match
 ls ~/.claude/templates/ship-presentation.html  # Should exist
@@ -2471,13 +2469,12 @@ The next sections cover the slash commands, hook, and memory files that wire the
 
 ---
 
-### Step 4: Create command files and GSD variant
+### Step 4: Create command files
 
 #### Create the commands directory
 
 ```bash
 mkdir -p ~/.claude/commands
-mkdir -p ~/.claude/commands/gsd
 ```
 
 #### Command: /discuss
@@ -3420,7 +3417,7 @@ allowed-tools:
 source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "review" "$*"
 ```
 <objective>
-Run the 6-agent Review Squad on changed files. Works in any project — GSD or not.
+Run the 6-agent Review Squad on changed files.
 
 The squad: `father-christmas-review`, `jared-review`, `stevey-boy-choi-review`, `pm-cory-review` (parallel) → `nando-review` (synthesis) → `emily-review` (final).
 </objective>
@@ -4872,267 +4869,6 @@ If +nando:
 </success_criteria>
 ````
 
-#### GSD Command: /gsd:review
-
-For GSD (Get Stuff Done) projects, there is a phase-specific review variant. Create file `~/.claude/commands/gsd/review.md`:
-
-```markdown
----
-name: gsd:review
-description: Run the Review Squad (FC, Jared, Stevey Boy Choi, PM Cory, Nando, Emily) on a phase's changed files before testing
-argument-hint: "<phase-number>"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Glob
-  - Grep
-  - Agent
-  - AskUserQuestion
----
-<objective>
-Run the 6-agent Review Squad on all files changed during a GSD phase. This slots between execution and verification — code must pass review before testing.
-
-The squad:
-1. **Father Christmas** — Code quality + novel approaches
-2. **Jared** — Security, efficiency, systems reuse
-3. **Stevey Boy Choi** — UX/UI, frontend performance, accessibility (frontend) + microservices connectivity, data pathway efficiency, resilience (always)
-4. **PM Cory** — PM, creative challenger, persistent memory agent
-5. **Nando** — Lead reviewer, synthesizes all outputs, delivers technical verdict
-6. **Emily** — Final reviewer: runs E2E validation tests, pressure tests features, verifies plan adherence, accessibility compliance, and UX intent
-</objective>
-
-<context>
-Phase: $ARGUMENTS (required — e.g., "49" or "49-search-enhancement")
-</context>
-
-<process>
-
-## Step 1: Identify changed files
-
-Determine the phase directory and find all files changed during this phase's execution.
-
-```bash
-# Find the phase directory
-PHASE_DIR=$(find .planning/phases/ -maxdepth 1 -type d -name "${PHASE_ARG}*" 2>/dev/null | head -1)
-```
-
-Get changed files from git commits associated with this phase:
-
-```bash
-# Find commits for this phase (exclude docs/planning commits)
-PHASE_NUM="${PHASE_ARG%%[-_]*}"
-git log --oneline --all --grep="(${PHASE_NUM}" --grep="feat\|fix\|refactor\|style\|perf" --format="%H" | while read sha; do
-  git diff-tree --no-commit-id --name-only -r "$sha"
-done | sort -u | grep -v "^\.planning/" | grep -v "^e2e/"
-```
-
-If no commits found, fall back to checking git diff against the phase's start point, or ask the user which files to review.
-
-Store the file list as `CHANGED_FILES`.
-
-Determine if any frontend files are in the changeset. Use the same frontend detection rules as `/review`: files in `frontend/`, `src/components/`, `src/pages/`, `public/`, or with extensions `.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.scss`, `.html`.
-
-## Step 2: Load PM Cory's persistent context
-
-```bash
-PROJECT_NAME=$(basename "$(pwd)")
-SQUAD_DIR=".review-squad/${PROJECT_NAME}"
-```
-
-If `${SQUAD_DIR}` doesn't exist, create the directory structure (PM Cory will handle this, but ensure it's there).
-
-Also check for Emily's prior phase outputs:
-```bash
-PLAN_PATH="${SQUAD_DIR}/current-plan.md"
-DISCUSSION_PATH="${SQUAD_DIR}/current-discussion.md"
-RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
-```
-
-## Step 3: Spawn reviewers in parallel
-
-Spawn FC, Jared, Stevey Boy Choi, and PM Cory in parallel. Stevey always participates (connectivity hat is always on; frontend hat activates when frontend files are present).
-
-For each agent, provide:
-- The list of changed files to review
-- The project context (what the phase was supposed to accomplish — from ROADMAP.md or the plan files)
-- Instructions to read each file before forming opinions
-
-**Agent prompts must include:**
-```
-Review the following files changed in Phase {PHASE_NUM} ({phase_name}):
-
-{CHANGED_FILES list}
-
-Phase goal: {goal from ROADMAP.md}
-
-Read every file listed above using the Read tool before forming your review.
-For context, you may also read related files that are imported or referenced by the changed files.
-
-Working directory: {cwd}
-```
-
-For PM Cory, additionally include:
-```
-Load persistent context from: {SQUAD_DIR}/
-After your review, update the persistent knowledge files with new learnings.
-```
-
-## Step 4: Collect outputs
-
-Wait for all parallel agents to complete. Collect their review outputs.
-
-## Step 5: Spawn Nando
-
-Spawn Nando with all review outputs concatenated:
-
-```
-You are reviewing Phase {PHASE_NUM} ({phase_name}).
-
-Here are the review outputs from your squad:
-
-=== FATHER CHRISTMAS ===
-{fc_output}
-
-=== JARED ===
-{jared_output}
-
-=== STEVEY BOY CHOI ===
-{stevey_output}
-
-=== PM CORY ===
-{pm_cory_output}
-
-Changed files:
-{CHANGED_FILES}
-
-Synthesize these reviews into your final consolidated verdict.
-Read any files flagged by multiple reviewers or with conflicting recommendations.
-```
-
-## Step 6: Spawn Emily (Final Review)
-
-After Nando completes, spawn `emily` in **review mode** with:
-- Nando's consolidated verdict
-- All agent review outputs
-- The plan from `.review-squad/<project-name>/current-plan.md` (if it exists)
-- The discussion and research files (if they exist)
-- The phase goal and requirements from ROADMAP.md
-
-Emily's prompt:
-```
-You are performing your final review of Phase {PHASE_NUM} ({phase_name}) after Nando's technical verdict.
-This includes E2E feature validation and pressure testing — not just code review.
-
-=== NANDO — Consolidated Review ===
-{nando_output}
-
-=== AGENT REVIEWS (for reference) ===
-FC: {fc_output}
-Jared: {jared_output}
-Stevey: {stevey_output}
-PM Cory: {pm_cory_output}
-
-{If plan exists:}
-=== EMILY — Implementation Plan (from /plan phase) ===
-{plan_content}
-
-{If discussion exists:}
-=== EMILY — Discussion Summary (from /discuss phase) ===
-{discussion_content}
-
-{If research exists:}
-=== EMILY — Research Findings (from /research phase) ===
-{research_content}
-
-Phase goal: {goal from ROADMAP.md}
-Changed files: {CHANGED_FILES}
-Working directory: {cwd}
-
-Perform your final review:
-1. Run any automated validation tests you created during /implement
-   (Playwright, Jest, etc.). Report pass/fail with evidence.
-2. Walk through your manual validation checklists against the actual
-   implementation. Report pass/fail per item.
-3. Execute your pressure test scenarios. Document observed behavior.
-4. Check plan adherence, research alignment, requirements coverage,
-   accessibility compliance, and UX intent.
-5. Deliver your CONFIRM or CHALLENGE verdict. Test failures carry the
-   same weight as plan adherence issues — failing tests mean CHALLENGE.
-
-If no tests were created during /implement, design and run validation
-checks now based on the changed files and any available plan/criteria.
-
-If no plan/discussion/research exists, note this gap and provide a
-lighter-touch review focused on accessibility, UX intent, and
-feature-level validation of the changed code.
-```
-
-Emily runs E2E tests, pressure tests features, checks plan adherence, research alignment, requirements coverage, accessibility compliance, and UX intent. Test failures are findings that factor into her CONFIRM or CHALLENGE verdict.
-
-## Step 7: Present verdict
-
-Display Nando's consolidated review followed by Emily's final review.
-
-**If Nando APPROVE + Emily CONFIRM:**
-```
-## Review Squad: APPROVED
-
-Phase {X} code passed review. Emily confirms plan adherence.
-Ready for verification.
-
-Next: `/gsd:verify-work {X}`
-```
-
-**If Nando APPROVE + Emily CHALLENGE:**
-```
-## Review Squad: APPROVED (with challenges)
-
-{Nando's approval}
-
-### Emily's Challenges
-{Emily's items for consideration}
-
-Address Emily's challenges, then: `/gsd:verify-work {X}`
-```
-
-**If Nando REVISE:**
-```
-## Review Squad: REVISE
-
-{Nando's required changes list}
-{Emily's plan adherence notes, if applicable}
-
-Fix the items above, then re-run: `/gsd:review {X}`
-```
-
-**If Nando BLOCK:**
-```
-## Review Squad: BLOCKED
-
-{Nando's blockers list}
-{Emily's accessibility/plan blockers, if applicable}
-
-These must be resolved before proceeding. Fix and re-run: `/gsd:review {X}`
-```
-
-</process>
-
-<success_criteria>
-- [ ] All changed files identified from phase commits
-- [ ] FC, Jared, Stevey, PM Cory spawned in parallel
-- [ ] All agents completed their reviews
-- [ ] Nando synthesized a consolidated verdict
-- [ ] Emily ran E2E validation tests (automated and/or manual)
-- [ ] Emily executed pressure test scenarios
-- [ ] Emily verified plan adherence, accessibility, and UX intent
-- [ ] Test results included in Emily's verdict
-- [ ] PM Cory updated persistent knowledge files
-- [ ] Combined verdict presented with clear next steps
-</success_criteria>
-```
-
 ---
 
 ### Step 5: Copy the HTML presentation template
@@ -5898,7 +5634,6 @@ PM Cory creates and maintains the following directory structure inside `.review-
 
 The Review Squad includes a PostToolUse hook that automatically detects when a review should be suggested. It fires in two modes:
 
-- **GSD mode:** Detects phase completion signals
 - **Standard mode:** Detects coding session wrap-up signals (commits, test runs, edit thresholds)
 
 #### Create the hook file
@@ -5915,10 +5650,9 @@ Create file `~/.claude/hooks/review-squad-gate.js`:
 #!/usr/bin/env node
 // Review Squad Gate — PostToolUse hook
 //
-// Fires the Review Squad advisory in two modes:
+// Fires the Review Squad advisory based on coding session wrap-up signals:
 //
-// MODE 1 — GSD: Detects gsd-tools phase complete / phase completion commits.
-// MODE 2 — Standard sessions: Detects coding session wrap-up signals:
+// Standard sessions: Detects coding session wrap-up signals:
 //   - Pre-commit: git add/commit commands after file edits
 //   - Test invocation: test runner commands (vitest, jest, pytest, playwright, etc.)
 //   - Edit threshold: 5+ unique files edited via Edit/Write tools
@@ -6022,32 +5756,11 @@ process.stdin.on('end', () => {
       process.exit(0);
     }
 
-    // ── MODE 1: GSD phase completion ──
-    let isGsdTrigger = false;
-    let phaseNum = null;
-
-    if (toolName === 'Bash' || toolName === 'Agent') {
-      const command = toolInput.command || '';
-      const outputStr = typeof toolOutput === 'string' ? toolOutput : JSON.stringify(toolOutput);
-
-      const isPhaseComplete = command.includes('phase complete') && command.includes('gsd-tools');
-      const isCompletionCommit = command.includes('git commit') &&
-        /docs\(phase-\d+\):\s*complete phase execution/i.test(command);
-      const isExecutionComplete = toolName === 'Agent' &&
-        /phase.*execution\s*complete/i.test(outputStr);
-
-      if (isPhaseComplete || isCompletionCommit || isExecutionComplete) {
-        isGsdTrigger = true;
-        const phaseMatch = command.match(/(?:phase complete|phase-(\d+))\s*["']?(\d+)?/);
-        phaseNum = phaseMatch ? (phaseMatch[2] || phaseMatch[1] || '?') : '?';
-      }
-    }
-
-    // ── MODE 2: Standard session wrap-up signals ──
+    // ── Standard session wrap-up signals ──
     let isStandardTrigger = false;
     let triggerReason = '';
 
-    if (!isGsdTrigger && toolName === 'Bash') {
+    if (toolName === 'Bash') {
       const command = toolInput.command || '';
 
       // Signal: git commit (wrapping up work)
@@ -6073,7 +5786,7 @@ process.stdin.on('end', () => {
     }
 
     // ── Also fire on edit threshold if a Bash command is running (any command = activity) ──
-    if (!isGsdTrigger && !isStandardTrigger && toolName === 'Bash' && editCount >= EDIT_THRESHOLD) {
+    if (!isStandardTrigger && toolName === 'Bash' && editCount >= EDIT_THRESHOLD) {
       // Check if this looks like a build/lint/compile command
       const command = toolInput.command || '';
       if (/\b(npm\s+run|npx\s+tsc|npx\s+eslint|make|cargo\s+build|go\s+build|pip\s+install)\b/.test(command)) {
@@ -6082,7 +5795,7 @@ process.stdin.on('end', () => {
       }
     }
 
-    if (!isGsdTrigger && !isStandardTrigger) {
+    if (!isStandardTrigger) {
       process.exit(0);
     }
 
@@ -6090,32 +5803,23 @@ process.stdin.on('end', () => {
     state.lastFired = now;
     fs.writeFileSync(stateFile, JSON.stringify(state));
 
-    let message;
+    const fileList = state.editedFiles.length <= 8
+      ? state.editedFiles.map(f => path.basename(f)).join(', ')
+      : `${state.editedFiles.length} files`;
 
-    if (isGsdTrigger) {
-      message = `REVIEW SQUAD GATE: Phase ${phaseNum} execution appears complete. ` +
-        'Before proceeding to verification, the Review Squad should review the changed code. ' +
-        `Run \`/gsd:review ${phaseNum}\` to spawn the full review squad. ` +
-        'If the user has already approved skipping review, proceed to verification.';
-    } else {
-      const fileList = state.editedFiles.length <= 8
-        ? state.editedFiles.map(f => path.basename(f)).join(', ')
-        : `${state.editedFiles.length} files`;
+    const triggerDesc = {
+      'pre-commit': 'A commit is being prepared',
+      'staging': 'Files are being staged for commit',
+      'test-run': 'Tests are about to run',
+      'edit-threshold-build': `${editCount} files have been modified and a build is running`
+    }[triggerReason] || 'Significant code changes detected';
 
-      const triggerDesc = {
-        'pre-commit': 'A commit is being prepared',
-        'staging': 'Files are being staged for commit',
-        'test-run': 'Tests are about to run',
-        'edit-threshold-build': `${editCount} files have been modified and a build is running`
-      }[triggerReason] || 'Significant code changes detected';
-
-      message = `REVIEW SQUAD ADVISORY: ${triggerDesc}. ` +
-        `${state.editedFiles.length} file(s) changed this session (${fileList}). ` +
-        'Consider running the Review Squad before committing or testing. ' +
-        'Ask the user: "Would you like to run the Review Squad on these changes before proceeding?" ' +
-        'If declined, continue normally. Spawn agents: father-christmas, jared, ' +
-        'stevey-boy-choi, pm-cory in parallel, then nando to synthesize, then emily for final plan adherence review.';
-    }
+    const message = `REVIEW SQUAD ADVISORY: ${triggerDesc}. ` +
+      `${state.editedFiles.length} file(s) changed this session (${fileList}). ` +
+      'Consider running the Review Squad before committing or testing. ' +
+      'Ask the user: "Would you like to run the Review Squad on these changes before proceeding?" ' +
+      'If declined, continue normally. Spawn agents: father-christmas, jared, ' +
+      'stevey-boy-choi, pm-cory in parallel, then nando to synthesize, then emily for final plan adherence review.';
 
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
@@ -6237,7 +5941,6 @@ The Review Squad operates across the full development lifecycle — discuss, res
 - `/consult` — Technical consultation: FC, Jared, Stevey consult on the plan, Nando produces Implementation Brief
 - `/implement` — Agents write code in parallel by domain, guided by the brief
 - `/review` — Post-implementation: agents review, Nando delivers technical verdict, Emily verifies plan adherence
-- GSD variants: `/gsd:review <phase>` for phase-specific review
 - Auto-fire hook triggers review advisory on commits/test runs after enough edits
 - For smaller tasks, skip directly to `/consult` — the early phases are most valuable for complex features
 ```
@@ -6276,7 +5979,7 @@ ls -la ~/.claude/agents/father-christmas-consult.md
 ls -la ~/.claude/agents/pm-cory-early.md
 ls -la ~/.claude/agents/stevey-boy-choi-review.md
 
-# 4. Check command files (should list 10 + 1 GSD)
+# 4. Check command files (should list 10)
 ls -la ~/.claude/commands/discuss.md
 ls -la ~/.claude/commands/research.md
 ls -la ~/.claude/commands/plan.md
@@ -6287,7 +5990,6 @@ ls -la ~/.claude/commands/ship.md
 ls -la ~/.claude/commands/audit.md
 ls -la ~/.claude/commands/quick.md
 ls -la ~/.claude/commands/update-reviewsquad.md
-ls -la ~/.claude/commands/gsd/review.md
 
 # 5. Check HTML template
 ls -la ~/.claude/templates/ship-presentation.html
@@ -6330,16 +6032,13 @@ Once installed, test the system in a Claude Code session:
 
 # Review recent commits
 /review HEAD~3
-
-# GSD phase review (if using GSD workflow)
-/gsd:review 49
 ```
 
 ---
 
 ## Workflow Reference
 
-The following diagrams show the complete standard and GSD workflows end-to-end.
+The following diagram shows the complete standard workflow end-to-end.
 
 ### Standard Project Workflow (Full)
 
@@ -6430,52 +6129,18 @@ The following diagrams show the complete standard and GSD workflows end-to-end.
 Note: For smaller tasks, you can skip directly to step 5 (/consult).
 ```
 
-### GSD Project Workflow
-
-```
-1. GSD phase execution completes
-        |
-        v
-2. Auto-fire hook detects completion
-   (or manual: /gsd:review <phase>)
-        |
-        v
-3. Identify files changed in phase
-   (from git commits matching phase number)
-        |
-        v
-4. Spawn reviewers in parallel
-        +---> FC: quality review
-        +---> Jared: security review
-        +---> Stevey: connectivity review (always) + UX review (if frontend files)
-        +---> PM Cory: challenge + memory
-        |
-        v
-5. Nando: Consolidated technical verdict
-        |
-        v
-6. Emily: E2E validation + pressure tests + final review (plan adherence, a11y)
-        |
-        +---> APPROVE (Nando + Emily aligned) --> /gsd:verify-work <phase>
-        +---> REVISE  --> fix, re-run /gsd:review <phase>
-        +---> BLOCK   --> resolve, re-run /gsd:review <phase>
-```
-
 ---
 
 ## Auto-Fire Trigger Reference
 
 The `review-squad-gate.js` hook monitors tool usage and fires review advisories based on these triggers:
 
-| Trigger | Condition | Mode |
-|---------|-----------|------|
-| GSD phase complete | `gsd-tools phase complete` command detected | GSD |
-| GSD completion commit | `git commit` with `docs(phase-N): complete phase execution` | GSD |
-| GSD agent completion | Agent output contains "phase execution complete" | GSD |
-| Pre-commit | `git commit` command (not `--amend`) | Standard |
-| Staging | `git add` when 5+ files edited | Standard |
-| Test run | vitest, jest, pytest, mocha, playwright, cypress, npm test | Standard |
-| Build with edits | npm run, npx tsc, npx eslint, make, cargo build, go build, pip install when 5+ files edited | Standard |
+| Trigger | Condition |
+|---------|-----------|
+| Pre-commit | `git commit` command (not `--amend`) |
+| Staging | `git add` when 5+ files edited |
+| Test run | vitest, jest, pytest, mocha, playwright, cypress, npm test |
+| Build with edits | npm run, npx tsc, npx eslint, make, cargo build, go build, pip install when 5+ files edited |
 
 **Debounce:** 10 minutes between advisories per session.
 
@@ -6559,7 +6224,6 @@ cp agents/*.md ~/.claude/agents/
 
 # Update all 9 command files
 cp commands/*.md ~/.claude/commands/
-cp commands/gsd/review.md ~/.claude/commands/gsd/review.md
 
 # Update the hook
 cp hooks/review-squad-gate.js ~/.claude/hooks/review-squad-gate.js
@@ -6595,7 +6259,6 @@ rm -f ~/.claude/agents/stevey-boy-choi-{consult,implement,review}.md
 
 # Remove all 9 command files
 rm -f ~/.claude/commands/{audit,consult,discuss,implement,plan,quick,research,review,ship}.md
-rm -f ~/.claude/commands/gsd/review.md
 
 # Remove hook
 rm -f ~/.claude/hooks/review-squad-gate.js

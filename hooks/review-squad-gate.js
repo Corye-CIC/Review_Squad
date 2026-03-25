@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 // Review Squad Gate — PostToolUse hook
 //
-// Fires the Review Squad advisory in two modes:
-//
-// MODE 1 — GSD: Detects gsd-tools phase complete / phase completion commits.
-// MODE 2 — Standard sessions: Detects coding session wrap-up signals:
+// Fires the Review Squad advisory at session wrap-up signals:
 //   - Pre-commit: git add/commit commands after file edits
 //   - Test invocation: test runner commands (vitest, jest, pytest, playwright, etc.)
 //   - Edit threshold: 5+ unique files edited via Edit/Write tools
@@ -222,32 +219,11 @@ process.stdin.on('end', () => {
       process.exit(0);
     }
 
-    // ── MODE 1: GSD phase completion ──
-    let isGsdTrigger = false;
-    let phaseNum = null;
-
-    if (toolName === 'Bash' || toolName === 'Agent') {
-      const command = toolInput.command || '';
-      const outputStr = typeof toolOutput === 'string' ? toolOutput : JSON.stringify(toolOutput);
-
-      const isPhaseComplete = command.includes('phase complete') && command.includes('gsd-tools');
-      const isCompletionCommit = command.includes('git commit') &&
-        /docs\(phase-\d+\):\s*complete phase execution/i.test(command);
-      const isExecutionComplete = toolName === 'Agent' &&
-        /phase.*execution\s*complete/i.test(outputStr);
-
-      if (isPhaseComplete || isCompletionCommit || isExecutionComplete) {
-        isGsdTrigger = true;
-        const phaseMatch = command.match(/(?:phase complete|phase-(\d+))\s*["']?(\d+)?/);
-        phaseNum = phaseMatch ? (phaseMatch[2] || phaseMatch[1] || '?') : '?';
-      }
-    }
-
-    // ── MODE 2: Standard session wrap-up signals ──
+    // ── Standard session wrap-up signals ──
     let isStandardTrigger = false;
     let triggerReason = '';
 
-    if (!isGsdTrigger && toolName === 'Bash') {
+    if (toolName === 'Bash') {
       const command = toolInput.command || '';
 
       // Signal: git commit (wrapping up work)
@@ -273,7 +249,7 @@ process.stdin.on('end', () => {
     }
 
     // ── Also fire on edit threshold if a Bash command is running (any command = activity) ──
-    if (!isGsdTrigger && !isStandardTrigger && toolName === 'Bash' && editCount >= EDIT_THRESHOLD) {
+    if (!isStandardTrigger && toolName === 'Bash' && editCount >= EDIT_THRESHOLD) {
       // Check if this looks like a build/lint/compile command
       const command = toolInput.command || '';
       if (/\b(npm\s+run|npx\s+tsc|npx\s+eslint|make|cargo\s+build|go\s+build|pip\s+install)\b/.test(command)) {
@@ -282,7 +258,7 @@ process.stdin.on('end', () => {
       }
     }
 
-    if (!isGsdTrigger && !isStandardTrigger) {
+    if (!isStandardTrigger) {
       process.exit(0);
     }
 
@@ -290,34 +266,25 @@ process.stdin.on('end', () => {
     state.lastFired = now;
     fs.writeFileSync(stateFile, JSON.stringify(state));
 
-    let message;
+    const fileList = state.editedFiles.length <= 8
+      ? state.editedFiles.map(f => path.basename(f)).join(', ')
+      : `${state.editedFiles.length} files`;
 
-    if (isGsdTrigger) {
-      message = `REVIEW SQUAD GATE: Phase ${phaseNum} execution appears complete. ` +
-        'Before proceeding to verification, the Review Squad should review the changed code. ' +
-        `Run \`/gsd:review ${phaseNum}\` to spawn the full review squad. ` +
-        'If the user has already approved skipping review, proceed to verification.';
-    } else {
-      const fileList = state.editedFiles.length <= 8
-        ? state.editedFiles.map(f => path.basename(f)).join(', ')
-        : `${state.editedFiles.length} files`;
+    const triggerDesc = {
+      'pre-commit': 'A commit is being prepared',
+      'staging': 'Files are being staged for commit',
+      'test-run': 'Tests are about to run',
+      'edit-threshold-build': `${editCount} files have been modified and a build is running`
+    }[triggerReason] || 'Significant code changes detected';
 
-      const triggerDesc = {
-        'pre-commit': 'A commit is being prepared',
-        'staging': 'Files are being staged for commit',
-        'test-run': 'Tests are about to run',
-        'edit-threshold-build': `${editCount} files have been modified and a build is running`
-      }[triggerReason] || 'Significant code changes detected';
+    const message = `REVIEW SQUAD ADVISORY: ${triggerDesc}. ` +
+      `${state.editedFiles.length} file(s) changed this session (${fileList}). ` +
+      'Consider running the Review Squad before committing or testing. ' +
+      'Ask the user: "Would you like to run the Review Squad on these changes before proceeding?" ' +
+      'If declined, continue normally. Spawn agents: father-christmas-review, jared-review, ' +
+      'stevey-boy-choi-review, pm-cory-review in parallel, then nando-review to synthesize, then emily-review for final verdict.';
 
-      message = `REVIEW SQUAD ADVISORY: ${triggerDesc}. ` +
-        `${state.editedFiles.length} file(s) changed this session (${fileList}). ` +
-        'Consider running the Review Squad before committing or testing. ' +
-        'Ask the user: "Would you like to run the Review Squad on these changes before proceeding?" ' +
-        'If declined, continue normally. Spawn agents: father-christmas-review, jared-review, ' +
-        'stevey-boy-choi-review, pm-cory-review in parallel, then nando-review to synthesize, then emily-review for final verdict.';
-    }
-
-    postLifecycle('review-complete', null, isGsdTrigger ? 'gsd' : triggerReason);
+    postLifecycle('review-complete', null, triggerReason);
 
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {

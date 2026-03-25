@@ -110,7 +110,7 @@ This same `<shared-files>` block is distributed to all agents in Step 4, Step 5 
 
 ## Step 4: Spawn reviewers in parallel
 
-**Thin-mode threshold:** If ≤ 2 files changed AND no frontend files, use thin mode — spawn only `jared-review` + `father-christmas-review`, then Nando. Skip Stevey and PM Cory. This avoids spawning 4+ agents for trivial changesets.
+**Thin-mode threshold:** If ≤ 2 files changed AND no frontend files, use thin mode — spawn only `jared-review` + `father-christmas-review`, then Nando. Skip Stevey and PM Cory. This avoids spawning 4+ agents for trivial changesets. Thin mode is applied automatically — the user sees no difference except faster results.
 
 **Full mode (> 2 files OR frontend files present):** Spawn all four in parallel:
 - `father-christmas-review` — with all changed files

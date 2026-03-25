@@ -107,7 +107,7 @@ ls "$HOME/.claude/agents/custom-{name}.md" 2>/dev/null
 ```
 If it exists, warn immediately:
 ```
-⚠️  ~/.claude/agents/custom-{name}.md already exists. Overwrite? (yes/no)
+Warning: ~/.claude/agents/custom-{name}.md already exists. Overwrite? (yes/no)
 ```
 If "no" → return to Q2 and ask for a different name.
 If "yes" → set `OVERWRITE_APPROVED=true`.
@@ -238,7 +238,7 @@ ls "$HOME/.claude/agents/custom-{NAME}.md" 2>/dev/null
 ```
 If it exists and `OVERWRITE_APPROVED` is not true, ask:
 ```
-⚠️  ~/.claude/agents/custom-{NAME}.md already exists. Overwrite? (yes/no)
+Warning: ~/.claude/agents/custom-{NAME}.md already exists. Overwrite? (yes/no)
 ```
 If "no" → return to Q2.
 
@@ -246,7 +246,7 @@ Write the confirmed content to `~/.claude/agents/custom-{NAME}.md`.
 
 Print:
 ```
-✓ Agent written to ~/.claude/agents/custom-{NAME}.md
+Done: agent written to ~/.claude/agents/custom-{NAME}.md
 Restart Claude Code or start a new session to activate it.
 Use it with: /quick <task> custom-{NAME}
 ```
