@@ -5,9 +5,9 @@
 .superpowers/
 
 # Session files
-plan.md
-progress.md
-.claude/handoff.md
+/plan.md
+/progress.md
+/.claude/handoff.md
 
 # OS
 .DS_Store

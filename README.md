@@ -2,6 +2,8 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+> **V3.3** — Context Pre-Loading Protocol. The orchestrator now reads all relevant files once before spawning any agent, injecting contents verbatim into each agent's prompt. Agents that receive pre-loaded context are barred from re-reading those files. In `/review`, 6 agents × N files collapses from 6N reads to 1 orchestrator read pass. All commands updated: `/discuss`, `/research`, `/plan`, `/consult`, `/implement`, `/review`, `/quick`.
+
 ## The Squad
 
 | Agent | Role | Specialties |
@@ -194,7 +196,7 @@ Calm authority with deep experience in requirements engineering and strategic pl
 ## How It Works
 
 ### Review (`/review`)
-Spawns FC, Jared, Stevey, PM Cory in parallel. Each agent reads every changed file and reviews from their specialty. Stevey's frontend hat activates for frontend files; his connectivity hat is always on. Nando then synthesizes all findings into a consolidated verdict (APPROVE / REVISE / BLOCK). Emily performs the final review checking plan adherence, accessibility, and UX intent (CONFIRM / CHALLENGE).
+Spawns FC, Jared, Stevey, PM Cory in parallel. The orchestrator pre-loads all changed file contents before spawning any agent — each agent receives an `<injected-context>` block and is barred from re-reading those files. Stevey's frontend hat activates for frontend files; his connectivity hat is always on. Nando then synthesizes all findings into a consolidated verdict (APPROVE / REVISE / BLOCK). Emily performs the final review checking plan adherence, accessibility, and UX intent (CONFIRM / CHALLENGE).
 
 ### Consultation (`/consult`)
 Each agent analyzes the task from their domain — FC proposes architecture, Jared audits security and existing systems, Stevey designs UI components and maps data connectivity, PM Cory loads prior learnings and challenges assumptions. Nando resolves conflicts and produces an **Implementation Brief** with wave structure, scope assignments, and shared interfaces.
@@ -363,6 +365,8 @@ Not every task needs all 7 phases. Here's how to shortcut efficiently:
 6. **Stevey always participates now.** Even pure backend changes get a connectivity review. If your services talk to each other, Stevey is checking those pathways.
 
 7. **`/ship` is a commitment.** It pushes code, creates PRs, and auto-fixes CI. Only invoke it when you're ready to go to remote. Everything before `/ship` is local-only.
+
+8. **The orchestrator reads, agents execute.** As of V3.3, every command pre-loads file contents before spawning agents. Agents work from injected context, not independent file reads. This cuts redundant token spend — especially on `/review` where all 6 agents previously read the same files independently.
 
 ---
 

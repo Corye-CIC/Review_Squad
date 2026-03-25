@@ -67,24 +67,73 @@ If Emily's plan exists, also extract:
 Before spawning any implementation agent, spawn `pm-cory-implement` with a targeted scope resolution task:
 
 ```
-Given this Implementation Brief, resolve each agent's scope into an exact file list.
-For each agent (FC, Jared, Stevey, Emily), use grep/glob to find the files matching their scope description.
-Return a file manifest in this format:
+Given this Implementation Brief, resolve each agent's scope into an exact file list, then read each file's contents.
+
+Apply the security denylist before reading: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+For each agent (FC, Jared, Stevey, Emily):
+1. Use grep/glob to find files matching their scope description
+2. Read each file's contents verbatim
+3. Identify files appearing in 2+ agent lanes — these go into "shared"
+
+Return a file manifest in this exact JSON structure:
 {
-  "fc": ["path/to/file1.ts", "path/to/file2.ts"],
-  "jared": ["path/to/file3.ts"],
-  "stevey": ["path/to/file4.html", "path/to/file4.css"],
-  "emily": ["tests/path/to/spec.ts"]
+  "shared": [
+    { "path": "relative/path/to/file.ts", "content": "<verbatim file contents>" }
+  ],
+  "fc": [
+    { "path": "relative/path/to/file.ts", "content": "<verbatim file contents>" }
+  ],
+  "jared": [{ "path": "...", "content": "..." }],
+  "stevey": [{ "path": "...", "content": "..." }],
+  "emily": [{ "path": "...", "content": "..." }]
 }
-Do NOT implement anything. Scope resolution only.
+
+Rules:
+- "shared" key is required. Files in 2+ lanes must be promoted here and removed from individual lanes.
+- If a file cannot be read: { "path": "...", "content": null, "unreadable_reason": "..." }
+- Empty lane: "emily": [] — do not omit the key
+- All paths relative to working directory
+
+Do NOT implement anything. Scope resolution and content reading only.
 ```
+
+### Phase B: Bundle Assembly
+
+After PM Cory returns the manifest, assemble `<injected-context>` blocks without further file reads:
+
+```xml
+<injected-context>
+<context-meta command="/implement" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+<file path="{path}">
+{content from manifest["shared"]}
+</file>
+</shared-files>
+
+<agent-files>
+<file path="{path}">
+{content from manifest[lane_name]}
+</file>
+</agent-files>
+
+</injected-context>
+```
+
+- `<shared-files>` uses `manifest["shared"]` — identical block for all agents
+- `<agent-files>` uses `manifest[lane_name]` (fc, jared, stevey, emily) — unique per agent
+- `complete="false"` if any entry has `content: null`
+- If a manifest entry has `content: null`, log the path and include a note in the agent's prompt: "Note: [path] could not be pre-loaded — you may need to read it directly."
 
 Use the returned manifest to include a `<file-scope>` block in every agent prompt:
 ```
 <file-scope>
 Read and modify ONLY these files:
 - [list from manifest]
-Do not glob, grep, or explore outside this list. If you need an unlisted file, note it in your output.
+Files listed here that also appear in <injected-context> are pre-loaded — do not re-read them. Files listed here NOT in <injected-context> are permitted reads if you have genuine need.
 </file-scope>
 ```
 
@@ -95,6 +144,8 @@ This keeps each agent's context window targeted to their domain. Agents do not e
 Spawn agents assigned to Wave 1. These typically run sequentially because later waves depend on them.
 
 Each agent prompt must include:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
+- The assembled `<injected-context>` block for this agent (from Phase B)
 - Their specific scope from the brief
 - The shared interfaces they need to define or implement
 - The full Implementation Brief for context
@@ -122,6 +173,8 @@ Also spawn `emily-implement` in parallel with Wave 2. Emily designs validation t
 > **File assignment constraint:** Nando's Implementation Brief must guarantee that no two agents are assigned the same file within a single wave. If two agents need to modify the same file, either sequence them across waves or have one agent own the file with the other providing requirements. Emily writes to the test directory only — no conflict with implementation agents. PM Cory should verify this constraint before wave execution begins.
 
 Each Wave 2 agent prompt must include:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
+- The assembled `<injected-context>` block for this agent (from Phase B)
 - Their scope from the brief
 - Wave 1 outputs they depend on (exact file paths and interface definitions)
 - Instruction to consume the interfaces defined in Wave 1

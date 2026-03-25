@@ -61,6 +61,44 @@ RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 
 If `current-plan.md` exists, read it — this is Emily's implementation plan and should serve as the primary input for consultation. Also read discussion and research files if present for full context.
 
+## Step 1.5: Context Pre-Loading
+
+Apply the security denylist before reading any file: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+**Discover:** CONTEXT.md files (from Step 1) + Emily's plan/discussion/research files (from Step 1).
+
+**Resolve:** Split by agent domain using these heuristics:
+- FC → data layer, service, business logic, model files
+- Jared → auth, API, validation, security-related files
+- Stevey → frontend, component, stylesheet files
+- PM Cory → `.review-squad/` squad dir contents
+
+Files needed by 2+ agent domains → `<shared-files>`. Files needed by one domain → that agent's `<agent-files>`.
+
+**Read:** Read all resolved files into orchestrator context (one pass, after denylist filter).
+
+**Bundle:** Assemble per-agent `<injected-context>` blocks using this canonical format:
+```xml
+<injected-context>
+<context-meta command="/consult" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+<file path="path/to/shared-file.ts">
+[file contents verbatim]
+</file>
+</shared-files>
+
+<agent-files>
+<file path="path/to/agent-specific-file.ts">
+[file contents verbatim]
+</file>
+</agent-files>
+
+</injected-context>
+```
+
 ## Step 2: Initialize PM Cory's persistent storage
 
 ```bash
@@ -79,11 +117,15 @@ Each agent prompt must include:
 - Working directory path
 - A `<file-scope>` block listing the files each agent should focus on (derived from CONTEXT.md file lists or grep/glob pre-resolution):
 
+Each agent prompt must also begin with: `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+
+Inject the assembled `<injected-context>` block (from Step 1.5) into each agent prompt.
+
 ```
 <file-scope>
 Read and modify ONLY these files:
 - [list of files relevant to this agent's domain]
-Do not glob, grep, or explore outside this list. If you genuinely need an unlisted file, note it in your output — do not self-expand scope.
+Files listed here that also appear in <injected-context> are pre-loaded — do not re-read them. Files listed here NOT in <injected-context> are permitted reads if you have genuine need.
 </file-scope>
 ```
 

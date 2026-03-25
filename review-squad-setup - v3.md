@@ -1,7 +1,7 @@
 # Review Squad -- Complete Setup Guide
 
-**Version:** 3.2
-**Last updated:** 2026-03-23
+**Version:** 3.3
+**Last updated:** 2026-03-25
 **Requires:** Node.js 18+, Claude Code CLI with Agent tool support
 
 Portable instructions for the 6-agent full-lifecycle development system. This document contains everything needed to set up the Review Squad on a new machine: agent definitions, slash commands (including `/ship`), hooks, memory files, and workflow reference.
@@ -12,6 +12,12 @@ Portable instructions for the 6-agent full-lifecycle development system. This do
 - **Review Squad Gate hook updated** — Now detects `pr-failure.md`, `pr-success.md`, and `pr-timeout.md` from the `/ship` async watcher. Added `successDetected` state flag. Stevey always included in advisory.
 - **HTML presentation template** — Self-contained dark theme, responsive, accessible (`<h2>` headings, `scope="col"` on tables), system font stack. Lives at `~/.claude/templates/ship-presentation.html`.
 - **Mode-suffixed agents (V3.1)** — 6 monolithic agent files replaced by 25 mode-specific files (`{name}-{mode}.md`). Each file is ~63–76% smaller, loads only the mode it needs, and is registered by Claude Code independently. Setup now includes a cleanup step to remove old monolithic files.
+
+### What's New in V3.3
+- **Context Pre-Loading Protocol** — All commands now pre-load file contents in the orchestrator before any agent is spawned. Agents receive an `<injected-context>` block with verbatim file contents and are barred from re-reading those files. Eliminates duplicate reads across all squad commands.
+- **Token reduction — orchestrator reads once** — In `/review`, 6 agents × N files = 6N reads is now 1 orchestrator read pass + 0 agent reads. `/implement` extends PM Cory's Step 2.5 manifest to include file contents alongside paths. `/consult` splits files by agent domain. `/discuss`, `/research`, `/plan`, `/quick` inject CONTEXT.md + diff files upfront.
+- **Security denylist** — Applied at pre-loading step in every command: excludes `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and filenames containing `password`, `secret`, or `token`.
+- **Anti-exploration rule inlined** — All 25 agent files now carry the `<injected-context>` behavioral rule directly in their `<rules>` section. Agents that receive pre-loaded context are barred from re-reading known files.
 
 ### What's New in V3.2
 - **`/audit` command** — Deep security, architecture, and systems audit using `jared-audit` + `father-christmas-audit` in parallel, synthesized by Nando. Run against the full codebase or a specific subsystem before major work to surface debt and security issues.
@@ -398,6 +404,7 @@ Work with PM Cory throughout — Cory brings prior learnings, challenges assumpt
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it and fix it.
@@ -492,6 +499,7 @@ Run in parallel with implementation agents (FC, Jared, Stevey) to design validat
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files (plus the test directory). Do not glob, grep, or explore outside them. If you need an unlisted implementation file to write accurate tests, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - You write tests — not production code. Your domain is validation, not implementation.
 - If you need a utility for testing, write it in the test directory.
@@ -589,6 +597,7 @@ PM Cory validates scope, flags coordination risks, persists the plan.
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it and fix it.
@@ -668,6 +677,7 @@ Produce ONLY the JSON object. No markdown wrapping, no commentary.
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in present mode.
@@ -760,6 +770,7 @@ PM Cory handles codebase exploration and surfaces relevant memories. You synthes
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it and fix it.
@@ -863,6 +874,7 @@ Implementation aligns with plan, research, and requirements. Nando's verdict sta
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Always read Discussion Summary, Research Findings, and Plan before reviewing. If missing, note as a gap.
 - Don't duplicate FC/Jared/Stevey/Nando's technical findings — add strategic value and test evidence.
@@ -929,6 +941,7 @@ Perform deep analysis of the existing codebase or a specific subsystem:
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in audit mode.
@@ -1004,6 +1017,7 @@ Provide architectural guidance for upcoming implementation:
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file to consult accurately, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in consult mode.
@@ -1082,6 +1096,7 @@ Write **core business logic, database operations, models, utilities, and backend
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it and fix it.
@@ -1157,6 +1172,7 @@ End with verdict: APPROVE, REVISE (with specific items), or BLOCK (serious quali
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you need an unlisted file to complete your review, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - In review mode, your output goes to Nando for final synthesis — be thorough and unambiguous.
@@ -1207,6 +1223,7 @@ Output: `# Jared — Security & Architecture Audit` with sections: Security Find
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in audit mode.
@@ -1259,6 +1276,7 @@ Output: `# Jared — Architecture & Security Brief` with sections: Architecture 
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file to consult accurately, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in consult mode.
@@ -1320,6 +1338,7 @@ Output: `# Jared — Implementation Report` with sections: Files Created/Modifie
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it and fix it.
@@ -1404,6 +1423,7 @@ End with verdict: APPROVE, REVISE, or BLOCK. Security issues always block.
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you need an unlisted file to complete your review, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - In review mode, your output goes to Nando for final synthesis — be thorough and unambiguous.
@@ -1505,6 +1525,7 @@ Receive consultation briefs from all agents and produce the **Implementation Bri
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file to produce the Implementation Brief, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in consult mode.
@@ -1582,6 +1603,7 @@ During implementation, you **oversee quality and integration**, not write applic
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it and fix it.
@@ -1662,6 +1684,7 @@ Receive review outputs from all agents and produce the **final consolidated revi
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in review mode.
@@ -1743,6 +1766,7 @@ Output: `# PM Cory — Consultation Notes` with sections: Prior Context, Questio
 
 <rules>
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files (plus your `.review-squad/` memory directory). Do not glob, grep, or explore outside them. If you need an unlisted file to complete your consultation, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - **Always load context first.** Read `.review-squad/<project-name>/` before doing anything else. Create if missing.
 - **Always persist learnings last.** Update knowledge files after every invocation. Non-negotiable.
 - `.review-squad/` must be gitignored. Check on first run.
@@ -1842,6 +1866,7 @@ This mode covers the three pre-consultation phases. The dispatching command prov
 - Your role is supportive, not authoritative over specialists. Ensure they can do their best work.
 - Learn out loud. If another agent teaches you something, acknowledge it.
 - When surfacing prior learnings, only highlight what's relevant. Don't dump entire history.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 </rules>
 ````
 
@@ -1919,6 +1944,7 @@ Output: `# PM Cory — Implementation Coordination` with sections: Agent Status 
 - Supportive, not authoritative over specialists.
 - Learn out loud. Acknowledge when taught something.
 - Only surface relevant prior learnings.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 </rules>
 ````
 
@@ -2018,6 +2044,7 @@ Produce ONLY the JSON object. No markdown wrapping, no commentary.
 
 <rules>
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files (plus your `.review-squad/` memory directory). Do not glob, grep, or explore outside them. If you need an unlisted file to complete your review, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - **Always load context first.** Read `.review-squad/<project-name>/` before doing anything else. Create if missing.
 - **Always persist learnings last.** Update knowledge files after producing JSON. Non-negotiable.
 - `.review-squad/` must be gitignored. Check on first run.
@@ -2147,6 +2174,7 @@ Output: `# PM Cory — Review Notes` with sections: Prior Context Loaded, Questi
 - Learn out loud. "Good catch by Jared — I didn't know [X]. That changes how I see [Y]."
 - Only surface relevant prior learnings. Don't dump entire history.
 - Your review goes to Nando along with the others. Be the glue that helps Nando see the full picture.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 </rules>
 ````
 
@@ -2211,6 +2239,7 @@ Output: `# Stevey — Design & Connectivity Brief` with Frontend and Data Connec
 
 <rules>
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file to consult accurately, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Accessibility failures that prevent operation are blockers. No debate.
 - Redundant service calls that double request latency or load are blockers.
 - Always suggest, never just criticize. Include the fix, not just the problem.
@@ -2286,6 +2315,7 @@ Output: `# Stevey — Implementation Report` with sections: Files Created/Modifi
 <rules>
 - Follow the Implementation Brief from consultation (if one exists).
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Every interactive element must be keyboard accessible (frontend).
 - Every async operation must have a loading state (frontend).
 - Every error must show a user-friendly message (frontend).
@@ -2414,6 +2444,7 @@ End with verdict: APPROVE, REVISE, or BLOCK.
 
 <rules>
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you need an unlisted file to complete your review, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Accessibility failures that prevent operation are blockers. No debate.
 - Redundant service calls that double request latency or load are blockers. Wasted calls waste money and time.
 - Always suggest, never just criticize. Include the fix, not just the problem.
@@ -2463,12 +2494,15 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "discuss" "$*"
+```
 <objective>
 Run Emily and PM Cory in discussion mode to explore the problem space, gather requirements, define success criteria, and identify open questions for research.
 
 The discussion team:
-1. **Emily** (lead) — Problem framing, requirements gathering, success criteria, accessibility requirements, UX vision
-2. **PM Cory** (co-lead) — Prior learnings, fresh perspective challenges, memory retention
+1. **Emily** (`emily-discuss`) — Problem framing, requirements, success criteria, accessibility, UX vision
+2. **PM Cory** (`pm-cory-early`) — Prior learnings, fresh perspective challenges, memory retention
 </objective>
 
 <context>
@@ -2476,13 +2510,56 @@ $ARGUMENTS — Description of what to build or the problem to solve. Can be:
 - Freeform text: "Add user authentication with OAuth"
 - File reference: "implement the changes described in docs/spec.md"
 - Task reference: "the feature from issue #42"
+
+$ARGUMENTS is provided by the user after the slash command (e.g., `/discuss Add user auth`). The command runner injects it as the argument string.
 </context>
 
 <process>
 
+## Step 0: Context Pre-Loading
+
+Apply the security denylist before reading any file: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+**Discover:**
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+Also load prior phase outputs from `.review-squad/<project-name>/` (discussion, research, plan files as applicable per command).
+
+**Read:** Read all discovered files into orchestrator context (one pass).
+
+**Bundle:** Assemble `<injected-context>` blocks using this canonical format:
+```xml
+<injected-context>
+<context-meta command="/discuss" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+</shared-files>
+
+<agent-files>
+<file path="path/to/agent-specific-file.md">
+[file contents verbatim]
+</file>
+</agent-files>
+
+</injected-context>
+```
+
+For single-agent commands (discuss, research, plan): all files go into `<agent-files>`. `<shared-files>` is empty (`<shared-files></shared-files>`).
+
+Inject this block into every agent prompt in subsequent steps. Add at the top of each agent's task description: `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+
 ## Step 1: Gather initial context
 
-Read relevant files to understand the current state:
+**Check for CONTEXT.md files first:**
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+If found, read them — these are pre-written service summaries. Pass them to both agents instead of having agents explore broadly.
+
+If no CONTEXT.md exists, read relevant files to understand the current state:
 - Project structure (key directories, entry points)
 - README or documentation for project goals
 - Existing feature patterns
@@ -2499,16 +2576,20 @@ mkdir -p "${SQUAD_DIR}/agent-notes"
 
 Spawn both agents using the Agent tool:
 
-**Emily** receives:
+**`emily-discuss`** receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+- The `<injected-context>` block assembled in Step 0
 - The task description ($ARGUMENTS)
-- Project context gathered in Step 1
-- Instruction to operate in **discuss mode**
 - Instruction to define requirements, success criteria, and accessibility needs
+- Working directory path
 
-**PM Cory** receives:
+**`pm-cory-early`** receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+- The `<injected-context>` block assembled in Step 0
 - The task description ($ARGUMENTS)
 - SQUAD_DIR path for loading persistent context
-- Instruction to operate in **discuss mode** — surface prior learnings, challenge assumptions, bounce ideas
+- Phase instruction: "You are in the **discuss** phase — surface prior learnings, challenge assumptions, bounce ideas with Emily"
+- Working directory path
 
 ## Step 4: Synthesize discussion
 
@@ -2569,12 +2650,15 @@ allowed-tools:
   - WebSearch
   - WebFetch
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "research" "$*"
+```
 <objective>
 Run Emily and PM Cory in research mode to investigate open questions from the discussion phase, evaluate technology options, analyze codebase patterns, and identify risks.
 
 The research team:
-1. **Emily** (lead) — Technology evaluation, prior art, accessibility patterns, risk identification, recommendation synthesis
-2. **PM Cory** (co-lead) — Codebase exploration, existing pattern surfacing, prior session memory
+1. **Emily** (`emily-research`) — Technology evaluation, prior art, accessibility patterns, risk identification, recommendations
+2. **PM Cory** (`pm-cory-early`) — Codebase exploration, existing pattern surfacing, prior session memory
 </objective>
 
 <context>
@@ -2582,16 +2666,54 @@ $ARGUMENTS — Optional. Can be:
 - Empty: loads discussion from `.review-squad/<project-name>/current-discussion.md`
 - Specific questions to research
 - Path to a discussion summary file
+
+$ARGUMENTS is provided by the user after the slash command (e.g., `/research` or `/research What auth libraries work with our stack?`). The command runner injects it as the argument string.
 </context>
 
 <process>
+
+## Step 0: Context Pre-Loading
+
+Apply the security denylist before reading any file: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+**Discover:**
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+Also load prior phase outputs from `.review-squad/<project-name>/` (discussion, research, plan files as applicable per command).
+
+**Read:** Read all discovered files into orchestrator context (one pass).
+
+**Bundle:** Assemble `<injected-context>` blocks using this canonical format:
+```xml
+<injected-context>
+<context-meta command="/research" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+</shared-files>
+
+<agent-files>
+<file path="path/to/agent-specific-file.md">
+[file contents verbatim]
+</file>
+</agent-files>
+
+</injected-context>
+```
+
+For single-agent commands (discuss, research, plan): all files go into `<agent-files>`. `<shared-files>` is empty (`<shared-files></shared-files>`).
+
+Inject this block into every agent prompt in subsequent steps. Add at the top of each agent's task description: `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
 
 ## Step 1: Load discussion context
 
 Check for existing discussion:
 ```bash
 PROJECT_NAME=$(basename "$(pwd)")
-DISCUSSION_PATH=".review-squad/${PROJECT_NAME}/current-discussion.md"
+SQUAD_DIR=".review-squad/${PROJECT_NAME}"
+DISCUSSION_PATH="${SQUAD_DIR}/current-discussion.md"
 ```
 
 **If discussion exists:** Read and use its open questions as the research agenda.
@@ -2600,16 +2722,26 @@ DISCUSSION_PATH=".review-squad/${PROJECT_NAME}/current-discussion.md"
 
 ## Step 2: Spawn Emily and PM Cory in parallel
 
-**Emily** receives:
-- The discussion summary (or research questions)
-- Instruction to operate in **research mode**
-- Instruction to evaluate technology options, research accessibility patterns, identify risks
+Check for CONTEXT.md files before spawning:
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+If found, include their content in both agent prompts — agents should read these instead of exploring broadly.
 
-**PM Cory** receives:
+**`emily-research`** receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+- The `<injected-context>` block assembled in Step 0
+- The discussion summary (or research questions)
+- Instruction to evaluate technology options, research accessibility patterns, identify risks
+- Working directory path
+
+**`pm-cory-early`** receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+- The `<injected-context>` block assembled in Step 0
 - The discussion summary (or research questions)
 - SQUAD_DIR path for persistent context
-- Instruction to operate in **research mode** — explore codebase for existing patterns, surface prior approach memories
-- Instruction to grep/read relevant source files to find existing patterns
+- Phase instruction: "You are in the **research** phase — explore codebase for existing patterns, surface prior approach memories, grep/read relevant source files"
+- Working directory path
 
 ## Step 3: Synthesize research
 
@@ -2667,12 +2799,15 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "plan" "$*"
+```
 <objective>
 Run Emily and PM Cory in planning mode to create a structured implementation plan that guides the technical consultation phase.
 
 The planning team:
-1. **Emily** (lead) — Plan structure, scope definition, accessibility integration, UX milestones, success validation
-2. **PM Cory** (co-lead) — Scope validation, coordination risk identification, memory persistence
+1. **Emily** (`emily-plan`) — Plan structure, scope definition, accessibility integration, UX milestones, success validation
+2. **PM Cory** (`pm-cory-early`) — Scope validation, coordination risk identification, memory persistence
 </objective>
 
 <context>
@@ -2680,9 +2815,46 @@ $ARGUMENTS — Optional. Can be:
 - Empty: loads discussion and research from `.review-squad/<project-name>/`
 - Path to research findings
 - Specific planning constraints
+
+$ARGUMENTS is provided by the user after the slash command (e.g., `/plan` or `/plan Must ship by Friday`). The command runner injects it as the argument string.
 </context>
 
 <process>
+
+## Step 0: Context Pre-Loading
+
+Apply the security denylist before reading any file: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+**Discover:**
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+Also load prior phase outputs from `.review-squad/<project-name>/` (discussion, research, plan files as applicable per command).
+
+**Read:** Read all discovered files into orchestrator context (one pass).
+
+**Bundle:** Assemble `<injected-context>` blocks using this canonical format:
+```xml
+<injected-context>
+<context-meta command="/plan" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+</shared-files>
+
+<agent-files>
+<file path="path/to/agent-specific-file.md">
+[file contents verbatim]
+</file>
+</agent-files>
+
+</injected-context>
+```
+
+For single-agent commands (discuss, research, plan): all files go into `<agent-files>`. `<shared-files>` is empty (`<shared-files></shared-files>`).
+
+Inject this block into every agent prompt in subsequent steps. Add at the top of each agent's task description: `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
 
 ## Step 1: Load prior phase outputs
 
@@ -2693,21 +2865,27 @@ DISCUSSION_PATH="${SQUAD_DIR}/current-discussion.md"
 RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 ```
 
+Also check for a `CONTEXT.md` in the current working directory. If it exists, read it — it contains service-specific architecture context that informs planning scope and agent assignments. Pass the content to both Emily and PM Cory.
+
 Read both files if they exist. If the discussion or research is missing, note this gap — the plan will be less informed.
 
 ## Step 2: Spawn Emily and PM Cory in parallel
 
-**Emily** receives:
+**`emily-plan`** receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+- The `<injected-context>` block assembled in Step 0
 - Discussion summary and research findings
-- Instruction to operate in **plan mode**
 - Instruction to create phased plan with accessibility woven into each phase
 - Any additional constraints from $ARGUMENTS
+- Working directory path
 
-**PM Cory** receives:
+**`pm-cory-early`** receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+- The `<injected-context>` block assembled in Step 0
 - Discussion summary and research findings
 - SQUAD_DIR path for persistent context
-- Instruction to operate in **plan mode** — validate scope, flag coordination risks, persist plan
-- Instruction to check for conflicts with prior learnings or patterns
+- Phase instruction: "You are in the **plan** phase — validate scope, flag coordination risks, check for conflicts with prior learnings or patterns, persist plan"
+- Working directory path
 
 ## Step 3: Synthesize plan
 
@@ -2769,15 +2947,13 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "consult" "$*"
+```
 <objective>
 Run the squad in consultation mode before implementation begins. Each agent analyzes the task from their specialty, then Nando synthesizes an Implementation Brief that guides parallel implementation. If Emily's plan exists from a prior `/plan` run, it serves as the input for consultation.
 
-The squad:
-1. **FC** — Proposes architecture, patterns, naming, interfaces
-2. **Jared** — Audits existing systems, defines security requirements, plans DB changes
-3. **Stevey** — Designs UI components, interactions, accessibility (if frontend) + audits data pathways, service connectivity, and integration efficiency (always)
-4. **PM Cory** — Loads prior learnings, challenges assumptions, proposes scope division
-5. **Nando** — Resolves conflicts, locks down interfaces, produces the Implementation Brief
+The squad: `father-christmas-consult`, `jared-consult`, `stevey-boy-choi-consult`, `pm-cory-consult` (parallel) → `nando-consult` (synthesis).
 
 > **Recommended flow:** `/discuss` → `/research` → `/plan` → `/consult` → `/implement` → `/review`
 > You can skip directly to `/consult` for smaller tasks, but the full flow produces better outcomes.
@@ -2788,6 +2964,7 @@ $ARGUMENTS — Description of what to build. Can be:
 - Freeform text: "Add user authentication with OAuth"
 - File reference: "implement the changes described in docs/spec.md"
 - Task reference: "the feature from issue #42"
+- Empty: if Emily's plan exists at `.review-squad/<project-name>/current-plan.md`, use that as input
 
 $ARGUMENTS is provided by the user after the slash command (e.g., `/consult Add user auth`). The command runner injects it as the argument string.
 </context>
@@ -2796,7 +2973,13 @@ $ARGUMENTS is provided by the user after the slash command (e.g., `/consult Add 
 
 ## Step 1: Gather context
 
-Read relevant files to understand the current codebase state:
+**Check for CONTEXT.md files first** — these are pre-written service summaries that replace broad exploration:
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+If found, read them. Pass their content directly to consultation agents instead of having agents glob/read widely. CONTEXT.md files contain: architecture overview, file list, key state, protocols, and constraints.
+
+If no CONTEXT.md exists, read relevant files to understand the current codebase state:
 - Project structure (key directories, entry points)
 - Existing patterns (how similar features are currently implemented)
 - Database schema if relevant
@@ -2813,7 +2996,45 @@ RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 
 If `current-plan.md` exists, read it — this is Emily's implementation plan and should serve as the primary input for consultation. Also read discussion and research files if present for full context.
 
-## Step 2: Load PM Cory's persistent context
+## Step 1.5: Context Pre-Loading
+
+Apply the security denylist before reading any file: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+**Discover:** CONTEXT.md files (from Step 1) + Emily's plan/discussion/research files (from Step 1).
+
+**Resolve:** Split by agent domain using these heuristics:
+- FC → data layer, service, business logic, model files
+- Jared → auth, API, validation, security-related files
+- Stevey → frontend, component, stylesheet files
+- PM Cory → `.review-squad/` squad dir contents
+
+Files needed by 2+ agent domains → `<shared-files>`. Files needed by one domain → that agent's `<agent-files>`.
+
+**Read:** Read all resolved files into orchestrator context (one pass, after denylist filter).
+
+**Bundle:** Assemble per-agent `<injected-context>` blocks using this canonical format:
+```xml
+<injected-context>
+<context-meta command="/consult" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+<file path="path/to/shared-file.ts">
+[file contents verbatim]
+</file>
+</shared-files>
+
+<agent-files>
+<file path="path/to/agent-specific-file.ts">
+[file contents verbatim]
+</file>
+</agent-files>
+
+</injected-context>
+```
+
+## Step 2: Initialize PM Cory's persistent storage
 
 ```bash
 mkdir -p "${SQUAD_DIR}/agent-notes"
@@ -2821,23 +3042,38 @@ mkdir -p "${SQUAD_DIR}/agent-notes"
 
 ## Step 3: Spawn consultation agents in parallel
 
-Spawn FC, Jared, Stevey, PM Cory in parallel using the Agent tool. Stevey always participates (connectivity hat always on; frontend hat activates when frontend is in scope).
+Spawn `father-christmas-consult`, `jared-consult`, `stevey-boy-choi-consult`, `pm-cory-consult` in parallel using the Agent tool. Stevey always participates (connectivity hat always on; frontend hat activates when frontend is in scope).
 
 Each agent prompt must include:
 - The task description ($ARGUMENTS) — or Emily's plan if it exists
 - If Emily's plan exists, include it verbatim and instruct agents to consult against the plan's requirements, accessibility checklist, and scope boundaries
-- Relevant codebase context (file structure, existing patterns)
-- Instruction to operate in **consult mode**
+- CONTEXT.md content (if found in Step 1) — passed verbatim so agents don't need to re-read service files
+- Relevant codebase context (file structure, existing patterns) — only if CONTEXT.md not available
 - Working directory path
+- A `<file-scope>` block listing the files each agent should focus on (derived from CONTEXT.md file lists or grep/glob pre-resolution):
 
-For PM Cory, include the SQUAD_DIR path for loading persistent context.
+Each agent prompt must also begin with: `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+
+Inject the assembled `<injected-context>` block (from Step 1.5) into each agent prompt.
+
+```
+<file-scope>
+Read and modify ONLY these files:
+- [list of files relevant to this agent's domain]
+Files listed here that also appear in <injected-context> are pre-loaded — do not re-read them. Files listed here NOT in <injected-context> are permitted reads if you have genuine need.
+</file-scope>
+```
+
+For `pm-cory-consult`, include the SQUAD_DIR path for loading persistent context.
 
 ## Step 4: Spawn Nando
 
-After all consultation agents complete, spawn Nando in **consult mode** with all their briefs:
+After all consultation agents complete, spawn `nando-consult` with all their briefs:
 
 ```
 You are consulting on: $ARGUMENTS
+
+Working directory: {cwd}
 
 {If Emily's plan exists:}
 Emily's Implementation Plan (from /discuss → /research → /plan):
@@ -2915,16 +3151,13 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "implement" "$*"
+```
 <objective>
 Execute parallel implementation using the squad. Each agent writes code in their domain following the Implementation Brief produced by `/consult`. Emily designs validation tests in parallel. PM Cory coordinates. Nando oversees integration.
 
-The squad:
-1. **FC** — Writes core business logic, models, utilities, type definitions
-2. **Jared** — Writes auth, validation, DB queries, security hardening
-3. **Stevey** — Writes frontend components, styles, interactions, accessibility (if frontend) + service clients, caching, circuit breakers, integration tests (always)
-4. **Emily** — Designs validation tests in parallel (Playwright E2E if installed, automated + manual otherwise). Tests are ready for `/review`.
-5. **PM Cory** — Coordinates agents, manages interfaces, tracks progress, persists learnings
-6. **Nando** — Spot-checks quality, resolves conflicts, writes integration glue, final verification
+The squad: `father-christmas-implement`, `jared-implement`, `stevey-boy-choi-implement` (implementation) + `emily-implement` (validation tests) + `pm-cory-implement` (coordination) → `nando-implement` (integration check).
 </objective>
 
 <context>
@@ -2968,20 +3201,98 @@ If Emily's plan exists, also extract:
 - UX validation points
 - Success criteria
 
+## Step 2.5: Pre-resolve file scopes
+
+Before spawning any implementation agent, spawn `pm-cory-implement` with a targeted scope resolution task:
+
+```
+Given this Implementation Brief, resolve each agent's scope into an exact file list, then read each file's contents.
+
+Apply the security denylist before reading: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+For each agent (FC, Jared, Stevey, Emily):
+1. Use grep/glob to find files matching their scope description
+2. Read each file's contents verbatim
+3. Identify files appearing in 2+ agent lanes — these go into "shared"
+
+Return a file manifest in this exact JSON structure:
+{
+  "shared": [
+    { "path": "relative/path/to/file.ts", "content": "<verbatim file contents>" }
+  ],
+  "fc": [
+    { "path": "relative/path/to/file.ts", "content": "<verbatim file contents>" }
+  ],
+  "jared": [{ "path": "...", "content": "..." }],
+  "stevey": [{ "path": "...", "content": "..." }],
+  "emily": [{ "path": "...", "content": "..." }]
+}
+
+Rules:
+- "shared" key is required. Files in 2+ lanes must be promoted here and removed from individual lanes.
+- If a file cannot be read: { "path": "...", "content": null, "unreadable_reason": "..." }
+- Empty lane: "emily": [] — do not omit the key
+- All paths relative to working directory
+
+Do NOT implement anything. Scope resolution and content reading only.
+```
+
+### Phase B: Bundle Assembly
+
+After PM Cory returns the manifest, assemble `<injected-context>` blocks without further file reads:
+
+```xml
+<injected-context>
+<context-meta command="/implement" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+<file path="{path}">
+{content from manifest["shared"]}
+</file>
+</shared-files>
+
+<agent-files>
+<file path="{path}">
+{content from manifest[lane_name]}
+</file>
+</agent-files>
+
+</injected-context>
+```
+
+- `<shared-files>` uses `manifest["shared"]` — identical block for all agents
+- `<agent-files>` uses `manifest[lane_name]` (fc, jared, stevey, emily) — unique per agent
+- `complete="false"` if any entry has `content: null`
+- If a manifest entry has `content: null`, log the path and include a note in the agent's prompt: "Note: [path] could not be pre-loaded — you may need to read it directly."
+
+Use the returned manifest to include a `<file-scope>` block in every agent prompt:
+```
+<file-scope>
+Read and modify ONLY these files:
+- [list from manifest]
+Files listed here that also appear in <injected-context> are pre-loaded — do not re-read them. Files listed here NOT in <injected-context> are permitted reads if you have genuine need.
+</file-scope>
+```
+
+This keeps each agent's context window targeted to their domain. Agents do not explore the broader codebase.
+
 ## Step 3: Execute Wave 1 (foundations)
 
 Spawn agents assigned to Wave 1. These typically run sequentially because later waves depend on them.
 
 Each agent prompt must include:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
+- The assembled `<injected-context>` block for this agent (from Phase B)
 - Their specific scope from the brief
 - The shared interfaces they need to define or implement
 - The full Implementation Brief for context
 - Emily's accessibility requirements relevant to their scope (if plan exists)
-- Instruction to operate in **implement mode**
 - Instruction to commit each logical unit atomically
 - Working directory path
 
-Spawn PM Cory alongside to coordinate and track.
+Spawn `pm-cory-implement` alongside to coordinate and track.
 
 ## Step 4: Verify Wave 1, spawn Wave 2
 
@@ -2992,26 +3303,29 @@ After Wave 1 completes:
 
 Spawn Wave 2 agents **in parallel** — they can work simultaneously now that foundations exist.
 
-Also spawn Emily in **implement mode** in parallel with Wave 2. Emily designs validation tests while the implementation agents write production code. Emily's prompt must include:
+Also spawn `emily-implement` in parallel with Wave 2. Emily designs validation tests while the implementation agents write production code. Emily's prompt must include:
 - The full Implementation Brief
 - Emily's plan (if it exists) — especially success criteria and accessibility requirements
 - Wave 1 outputs (file paths and interfaces) so tests can reference real code
 - The project's test infrastructure (Playwright installed? Jest/Vitest? Test directory conventions?)
-- Instruction to operate in **implement mode** (validation design)
 
 > **File assignment constraint:** Nando's Implementation Brief must guarantee that no two agents are assigned the same file within a single wave. If two agents need to modify the same file, either sequence them across waves or have one agent own the file with the other providing requirements. Emily writes to the test directory only — no conflict with implementation agents. PM Cory should verify this constraint before wave execution begins.
 
 Each Wave 2 agent prompt must include:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
+- The assembled `<injected-context>` block for this agent (from Phase B)
 - Their scope from the brief
 - Wave 1 outputs they depend on (exact file paths and interface definitions)
 - Instruction to consume the interfaces defined in Wave 1
 
 ## Step 5: Post-implementation integration check
 
-After all waves complete, spawn Nando in **implement mode**:
+After all waves complete, spawn `nando-implement`:
 
 ```
 Implementation complete. Here are the agent reports:
+
+Working directory: {cwd}
 
 === FC ===
 {fc_report}
@@ -3097,16 +3411,13 @@ allowed-tools:
   - Agent
   - AskUserQuestion
 ---
+```bash
+source "$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel 2>/dev/null)/services/chat-bridge/init-session.sh" "review" "$*"
+```
 <objective>
 Run the 6-agent Review Squad on changed files. Works in any project — GSD or not.
 
-The squad:
-1. **Father Christmas** — Code quality + novel approaches
-2. **Jared** — Security, efficiency, systems reuse
-3. **Stevey Boy Choi** — UX/UI, frontend performance, accessibility (frontend) + microservices connectivity, data pathway efficiency, resilience (always)
-4. **PM Cory** — PM, creative challenger, persistent memory agent
-5. **Nando** — Lead reviewer, synthesizes all outputs, delivers technical verdict
-6. **Emily** — Final reviewer: runs E2E validation tests, pressure tests features, verifies plan adherence, accessibility compliance, and UX intent
+The squad: `father-christmas-review`, `jared-review`, `stevey-boy-choi-review`, `pm-cory-review` (parallel) → `nando-review` (synthesis) → `emily-review` (final).
 </objective>
 
 <context>
@@ -3142,9 +3453,11 @@ If no files found, tell the user and exit.
 ## Step 2: Classify files
 
 Separate into:
-- **Backend/general files** — reviewed by FC, Jared, PM Cory, Stevey Boy Choi (connectivity hat)
-- **Frontend files** — also reviewed by Stevey Boy Choi (frontend hat)
+- **Backend/general files** — reviewed by FC, Jared, PM Cory, Stevey (connectivity hat)
+- **Frontend files** — Stevey also applies frontend hat
   Frontend detection: files in `frontend/`, `src/components/`, `src/pages/`, `public/`, or with extensions `.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.scss`, `.html`
+
+Note: Stevey always participates. Frontend files activate his frontend hat. His connectivity hat (microservices data pathways, redundant calls, service integration) is always on.
 
 ## Step 3: Load PM Cory's persistent context
 
@@ -3163,34 +3476,80 @@ DISCUSSION_PATH="${SQUAD_DIR}/current-discussion.md"
 RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 ```
 
+If each path exists, read the file and store its contents as `plan_content`, `discussion_content`, `research_content` respectively. Pass the file contents (not the paths) to Emily's prompt.
+
+## Step 3.5: Context Pre-Loading
+
+Apply the security denylist before reading any file: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+**Discover:** All changed files identified in Step 1 (already resolved — no additional discovery needed).
+
+**Read:** Read each changed file's contents into orchestrator context (one pass, after denylist filter). If the changed file count exceeds 20, log an advisory: "Large diff detected ({n} files) — pre-loading all files; monitor for context window pressure."
+
+**Bundle (shared block):** All changed files go into `<shared-files>` — every review agent needs the same set. `<agent-files>` is empty for all review agents.
+
+```xml
+<injected-context>
+<context-meta command="/review" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your review, note the gap in your output — do not self-expand scope.
+
+<shared-files>
+<file path="{changed-file-path}">
+{file contents verbatim}
+</file>
+</shared-files>
+
+<agent-files></agent-files>
+
+</injected-context>
+```
+
+This same `<shared-files>` block is distributed to all agents in Step 4, Step 5 (Nando), and Step 6 (Emily).
+
 ## Step 4: Spawn reviewers in parallel
 
-Spawn the following agents in parallel using the Agent tool:
+**Thin-mode threshold:** If ≤ 2 files changed AND no frontend files, use thin mode — spawn only `jared-review` + `father-christmas-review`, then Nando. Skip Stevey and PM Cory. This avoids spawning 4+ agents for trivial changesets.
 
-**Always spawn:**
-- `father-christmas` — with all changed files
-- `jared` — with all changed files
-- `pm-cory` — with all changed files + SQUAD_DIR path for persistent memory
-- `stevey-boy-choi` — with all changed files (connectivity hat is always on; frontend hat activates when frontend files are present)
+**Full mode (> 2 files OR frontend files present):** Spawn all four in parallel:
+- `father-christmas-review` — with all changed files
+- `jared-review` — with all changed files
+- `stevey-boy-choi-review` — with all changed files (connectivity hat always on; if frontend files present, note which files activate his frontend hat too)
+- `pm-cory-review` — with all changed files + SQUAD_DIR path for persistent memory
 
 Each agent prompt must include:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
 - The complete list of files to review
 - Working directory path
 - Brief context on what the changes are for (from git log or user description)
-- Instruction to Read every file before reviewing
+- The assembled `<injected-context>` block from Step 3.5 (with `agent="{agent-name}"` filled in for each agent)
+- A `<file-scope>` block hard-constraining the agent to the changed files:
+
+```
+<file-scope>
+Review ONLY these files:
+- [changed file 1]
+- [changed file 2]
+- ...
+Files listed here that also appear in <injected-context> are pre-loaded — do not re-read them. Files listed here NOT in <injected-context> are permitted reads if you have genuine need.
+</file-scope>
+```
 
 ## Step 5: Spawn Nando
 
-After all parallel agents complete, spawn `nando` with all their outputs concatenated.
+After all parallel agents complete, spawn `nando-review` with all their outputs concatenated.
 
 Nando receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
+- The assembled `<injected-context>` block from Step 3.5 (with `agent="nando-review"`)
 - All agent outputs
 - The file list
-- Instructions to read any files flagged by multiple reviewers
+- Working directory: {cwd}
+- Instructions to read any files flagged by multiple reviewers that are NOT already in `<injected-context>`
 
 ## Step 6: Spawn Emily (Final Review)
 
-After Nando completes, spawn `emily` in **review mode** with:
+After Nando completes, spawn `emily-review` with:
 - Nando's consolidated verdict
 - All agent review outputs
 - The plan from `.review-squad/<project-name>/current-plan.md` (if it exists)
@@ -3200,6 +3559,10 @@ After Nando completes, spawn `emily` in **review mode** with:
 
 Emily's prompt:
 ```
+Context is pre-loaded in <injected-context> below. Do not re-read those files.
+
+{injected-context block from Step 3.5 with agent="emily-review"}
+
 You are performing your final review after Nando's technical verdict.
 This includes E2E feature validation and pressure testing — not just code review.
 
@@ -3226,6 +3589,8 @@ PM Cory: {pm_cory_output}
 
 Changed files: {file_list}
 Working directory: {cwd}
+PM Cory persistent context: {SQUAD_DIR}/
+Note: read {SQUAD_DIR}/agent-notes/ to surface prior learnings from PM Cory's persistent memory.
 
 Perform your final review:
 1. Run any automated validation tests you created during /implement
@@ -3295,7 +3660,7 @@ Resolve blockers before proceeding. Then re-run: /review
 
 ## Step 8: Mark review complete
 
-The auto-fire hook automatically detects review completion. When the hook sees a `/review` command's final agent finish (an Agent tool whose output contains a final verdict), it sets `reviewRun: true` in the session state file, suppressing further advisories for this session.
+The auto-fire hook automatically detects review completion. When the hook sees Emily's final verdict (CONFIRM or CHALLENGE), it sets `reviewRun: true` in the session state file, suppressing further advisories for this session.
 
 No manual debounce step is needed -- the hook manages its own state using `data.session_id` from Claude Code's JSON input.
 
@@ -4225,7 +4590,7 @@ Three execution paths depending on how agents are specified:
 $ARGUMENTS format: `<task description> [agent-list] [+nando]`
 
 Agent aliases: `fc` (father-christmas), `jared`, `stevey` (stevey-boy-choi), `cory` (pm-cory), `nando`, `emily`
-Valid modes: `implement`, `review`, `consult`, `audit`
+Valid modes: `implement`, `review`, `consult`, `audit` (emily uses a different set — see parsing section)
 </context>
 
 <parsing>
@@ -4277,12 +4642,31 @@ Pick ONE agent. Only escalate to TWO if the task genuinely spans two clearly sep
 
 Determine mode from task description: `implement` (build/add/fix), `review` (inspect/check/audit), `consult` (design/plan), `audit` (deep audit).
 
+**Context Pre-Loading:** After routing (routing determines which agent, then load only what's relevant). Apply the security denylist: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive). Discover and read: (1) any CONTEXT.md files found via `find . -name "CONTEXT.md" -not -path "*/node_modules/*"`; (2) all files from `git diff --name-only HEAD` if non-empty. Bundle all read files into `<agent-files>` in an `<injected-context>` block.
+
 Spawn the chosen agent(s) using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
 
 ```
+Context is pre-loaded in <injected-context> below. Do not re-read those files.
+
 Task: {TASK}
 
 Working directory: {cwd}
+
+<injected-context>
+<context-meta command="/quick" agent="{agent-name}-{mode}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files></shared-files>
+
+<agent-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</agent-files>
+
+</injected-context>
 ```
 
 After agents complete, display outputs using the format:
@@ -4297,7 +4681,7 @@ If `HAS_NANDO=true`, after the primary agents complete, proceed to the **+nando 
 
 ### Step 1: Pre-flight
 
-Spawn each agent in `AGENT_LIST` in parallel using the Agent tool. Use subagent_type: `{agent-name}-consult` for the pre-flight (lightest available mode). Prompt each agent:
+Spawn each agent in `AGENT_LIST` in parallel using the Agent tool. Use subagent_type: `{agent-name}-consult` for the pre-flight (lightest available mode). Pre-flight prompts are **exempt from context injection** — the 3-line response format makes injection wasteful. Prompt each agent:
 
 ```
 Task: {TASK}
@@ -4341,12 +4725,33 @@ Use `AskUserQuestion` to show only the kept (high-relevance) agents and ask for 
 Proceed? (y/n/edit)
 ```
 
-- `y` → spawn each kept agent with their self-selected mode using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
+- `y` → Apply the security denylist (exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and filenames containing `password`, `secret`, or `token`). Discover and read: CONTEXT.md files + `git diff --name-only HEAD` (if non-empty). Files needed by 2+ agents go to `<shared-files>`; agent-specific files go to `<agent-files>`. Then spawn each kept agent with their self-selected mode (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
 
 ```
+Context is pre-loaded in <injected-context> below. Do not re-read those files.
+
 Task: {TASK}
 
 Working directory: {cwd}
+
+<injected-context>
+<context-meta command="/quick" agent="{agent-name}-{mode}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</shared-files>
+
+<agent-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</agent-files>
+
+</injected-context>
 ```
 - `n` → stop silently.
 - `edit` → go to the edit flow.
@@ -4373,12 +4778,35 @@ If `HAS_NANDO=true` (and nando not in AGENT_LIST), after primary agents complete
 
 Validate all agent names and modes. If `nando` has an explicit mode and `+nando` is also present, the explicit mode takes precedence — Nando runs as a peer agent in its specified mode, and the `+nando` synthesis pass is skipped.
 
+**Context Pre-Loading:** Apply the security denylist (exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and filenames containing `password`, `secret`, or `token`). Discover and read: CONTEXT.md files + `git diff --name-only HEAD` (if non-empty). Files needed by 2+ agents go to `<shared-files>`; agent-specific files go to `<agent-files>`.
+
 Spawn all agents in parallel using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
 
 ```
+Context is pre-loaded in <injected-context> below. Do not re-read those files.
+
 Task: {TASK}
 
 Working directory: {cwd}
+
+<injected-context>
+<context-meta command="/quick" agent="{agent-name}-{mode}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</shared-files>
+
+<agent-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</agent-files>
+
+</injected-context>
 ```
 
 No confirmation step.

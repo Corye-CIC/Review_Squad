@@ -79,6 +79,35 @@ RESEARCH_PATH="${SQUAD_DIR}/current-research.md"
 
 If each path exists, read the file and store its contents as `plan_content`, `discussion_content`, `research_content` respectively. Pass the file contents (not the paths) to Emily's prompt.
 
+## Step 3.5: Context Pre-Loading
+
+Apply the security denylist before reading any file: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+**Discover:** All changed files identified in Step 1 (already resolved — no additional discovery needed).
+
+**Read:** Read each changed file's contents into orchestrator context (one pass, after denylist filter). If the changed file count exceeds 20, log an advisory: "Large diff detected ({n} files) — pre-loading all files; monitor for context window pressure."
+
+**Bundle (shared block):** All changed files go into `<shared-files>` — every review agent needs the same set. `<agent-files>` is empty for all review agents.
+
+```xml
+<injected-context>
+<context-meta command="/review" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your review, note the gap in your output — do not self-expand scope.
+
+<shared-files>
+<file path="{changed-file-path}">
+{file contents verbatim}
+</file>
+</shared-files>
+
+<agent-files></agent-files>
+
+</injected-context>
+```
+
+This same `<shared-files>` block is distributed to all agents in Step 4, Step 5 (Nando), and Step 6 (Emily).
+
 ## Step 4: Spawn reviewers in parallel
 
 **Thin-mode threshold:** If ≤ 2 files changed AND no frontend files, use thin mode — spawn only `jared-review` + `father-christmas-review`, then Nando. Skip Stevey and PM Cory. This avoids spawning 4+ agents for trivial changesets.
@@ -90,19 +119,20 @@ If each path exists, read the file and store its contents as `plan_content`, `di
 - `pm-cory-review` — with all changed files + SQUAD_DIR path for persistent memory
 
 Each agent prompt must include:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
 - The complete list of files to review
 - Working directory path
 - Brief context on what the changes are for (from git log or user description)
-- Instruction to Read every file before reviewing
+- The assembled `<injected-context>` block from Step 3.5 (with `agent="{agent-name}"` filled in for each agent)
 - A `<file-scope>` block hard-constraining the agent to the changed files:
 
 ```
 <file-scope>
-Review ONLY these files — do not glob, grep, or read files outside this list:
+Review ONLY these files:
 - [changed file 1]
 - [changed file 2]
 - ...
-If context from an adjacent file is needed to understand a changed file, note the gap in your output rather than self-expanding scope.
+Files listed here that also appear in <injected-context> are pre-loaded — do not re-read them. Files listed here NOT in <injected-context> are permitted reads if you have genuine need.
 </file-scope>
 ```
 
@@ -111,10 +141,12 @@ If context from an adjacent file is needed to understand a changed file, note th
 After all parallel agents complete, spawn `nando-review` with all their outputs concatenated.
 
 Nando receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
+- The assembled `<injected-context>` block from Step 3.5 (with `agent="nando-review"`)
 - All agent outputs
 - The file list
 - Working directory: {cwd}
-- Instructions to read any files flagged by multiple reviewers
+- Instructions to read any files flagged by multiple reviewers that are NOT already in `<injected-context>`
 
 ## Step 6: Spawn Emily (Final Review)
 
@@ -128,6 +160,10 @@ After Nando completes, spawn `emily-review` with:
 
 Emily's prompt:
 ```
+Context is pre-loaded in <injected-context> below. Do not re-read those files.
+
+{injected-context block from Step 3.5 with agent="emily-review"}
+
 You are performing your final review after Nando's technical verdict.
 This includes E2E feature validation and pressure testing — not just code review.
 

@@ -59,4 +59,5 @@ Output: `# Stevey — Design & Connectivity Brief` with Frontend and Data Connec
 - In consult mode, build on FC/Jared findings rather than duplicating. FC owns data models — you own the pathways between them. Jared owns security boundaries — you verify traffic flows through them correctly.
 - When auditing connectivity, read the actual service code — don't guess from file names.
 - If a service-to-service call has no timeout, that's a finding. Every time. No exceptions.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 </rules>

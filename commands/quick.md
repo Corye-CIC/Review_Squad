@@ -80,12 +80,31 @@ Pick ONE agent. Only escalate to TWO if the task genuinely spans two clearly sep
 
 Determine mode from task description: `implement` (build/add/fix), `review` (inspect/check/audit), `consult` (design/plan), `audit` (deep audit).
 
+**Context Pre-Loading:** After routing (routing determines which agent, then load only what's relevant). Apply the security denylist: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive). Discover and read: (1) any CONTEXT.md files found via `find . -name "CONTEXT.md" -not -path "*/node_modules/*"`; (2) all files from `git diff --name-only HEAD` if non-empty. Bundle all read files into `<agent-files>` in an `<injected-context>` block.
+
 Spawn the chosen agent(s) using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
 
 ```
+Context is pre-loaded in <injected-context> below. Do not re-read those files.
+
 Task: {TASK}
 
 Working directory: {cwd}
+
+<injected-context>
+<context-meta command="/quick" agent="{agent-name}-{mode}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files></shared-files>
+
+<agent-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</agent-files>
+
+</injected-context>
 ```
 
 After agents complete, display outputs using the format:
@@ -100,7 +119,7 @@ If `HAS_NANDO=true`, after the primary agents complete, proceed to the **+nando 
 
 ### Step 1: Pre-flight
 
-Spawn each agent in `AGENT_LIST` in parallel using the Agent tool. Use subagent_type: `{agent-name}-consult` for the pre-flight (lightest available mode). Prompt each agent:
+Spawn each agent in `AGENT_LIST` in parallel using the Agent tool. Use subagent_type: `{agent-name}-consult` for the pre-flight (lightest available mode). Pre-flight prompts are **exempt from context injection** — the 3-line response format makes injection wasteful. Prompt each agent:
 
 ```
 Task: {TASK}
@@ -144,12 +163,33 @@ Use `AskUserQuestion` to show only the kept (high-relevance) agents and ask for 
 Proceed? (y/n/edit)
 ```
 
-- `y` → spawn each kept agent with their self-selected mode using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
+- `y` → Apply the security denylist (exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and filenames containing `password`, `secret`, or `token`). Discover and read: CONTEXT.md files + `git diff --name-only HEAD` (if non-empty). Files needed by 2+ agents go to `<shared-files>`; agent-specific files go to `<agent-files>`. Then spawn each kept agent with their self-selected mode (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
 
 ```
+Context is pre-loaded in <injected-context> below. Do not re-read those files.
+
 Task: {TASK}
 
 Working directory: {cwd}
+
+<injected-context>
+<context-meta command="/quick" agent="{agent-name}-{mode}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</shared-files>
+
+<agent-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</agent-files>
+
+</injected-context>
 ```
 - `n` → stop silently.
 - `edit` → go to the edit flow.
@@ -176,12 +216,35 @@ If `HAS_NANDO=true` (and nando not in AGENT_LIST), after primary agents complete
 
 Validate all agent names and modes. If `nando` has an explicit mode and `+nando` is also present, the explicit mode takes precedence — Nando runs as a peer agent in its specified mode, and the `+nando` synthesis pass is skipped.
 
+**Context Pre-Loading:** Apply the security denylist (exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and filenames containing `password`, `secret`, or `token`). Discover and read: CONTEXT.md files + `git diff --name-only HEAD` (if non-empty). Files needed by 2+ agents go to `<shared-files>`; agent-specific files go to `<agent-files>`.
+
 Spawn all agents in parallel using the Agent tool (subagent_type: `{agent-name}-{mode}`). Each agent's prompt:
 
 ```
+Context is pre-loaded in <injected-context> below. Do not re-read those files.
+
 Task: {TASK}
 
 Working directory: {cwd}
+
+<injected-context>
+<context-meta command="/quick" agent="{agent-name}-{mode}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</shared-files>
+
+<agent-files>
+<file path="{path}">
+{file contents verbatim}
+</file>
+</agent-files>
+
+</injected-context>
 ```
 
 No confirmation step.

@@ -93,4 +93,5 @@ Produce ONLY the JSON object. No markdown wrapping, no commentary.
 - `files_changed` must be derived from actual diff, not guessed.
 - `review_verdict` must be parsed from review-history.md, not fabricated.
 - For testing, run test commands if a runner is configured. If not, provide best-effort from test file analysis.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 </rules>

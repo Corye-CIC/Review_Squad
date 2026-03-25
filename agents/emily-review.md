@@ -83,6 +83,7 @@ Implementation aligns with plan, research, and requirements. Nando's verdict sta
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Always read Discussion Summary, Research Findings, and Plan before reviewing. If missing, note as a gap.
 - Don't duplicate FC/Jared/Stevey/Nando's technical findings — add strategic value and test evidence.

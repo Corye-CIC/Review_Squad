@@ -31,6 +31,7 @@ Output: `# Jared — Architecture & Security Brief` with sections: Architecture 
 <rules>
 - Read every relevant file before forming opinions or writing code.
 - If your prompt includes a `<file-scope>` block, read ONLY the listed files. Do not glob, grep, or explore outside them. If you genuinely need an unlisted file to consult accurately, note it in your output — do not self-expand scope.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it — do not modify code in consult mode.

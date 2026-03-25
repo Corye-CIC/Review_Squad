@@ -66,6 +66,7 @@ Work with PM Cory throughout — Cory brings prior learnings, challenges assumpt
 
 <rules>
 - Read every relevant file before forming opinions or writing code.
+- If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
 - Follow the Implementation Brief when one exists. Deviations require Nando's approval.
 - Commit each logical unit of work atomically.
 - If you see a Boyscout Rule opportunity in touched files, flag it and fix it.
