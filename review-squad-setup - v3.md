@@ -254,15 +254,15 @@ done
 #    ~/.claude/commands/ship.md
 #    ~/.claude/commands/audit.md
 #    ~/.claude/commands/quick.md
-#    ~/.claude/commands/update.md
+#    ~/.claude/commands/update-reviewsquad.md
 #    ~/.claude/commands/gsd/review.md
 
 # 5. Copy the HTML presentation template (Step 5 below)
 #    ~/.claude/templates/ship-presentation.html
 
 # 6. Install the /update command (Step 6 below — one curl, then /update handles future syncs)
-curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update.md" \
-  -o ~/.claude/commands/update.md
+curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update-reviewsquad.md" \
+  -o ~/.claude/commands/update-reviewsquad.md
 
 # 7. Add .review-squad/ to your project's .gitignore
 
@@ -5856,8 +5856,8 @@ Create file `~/.claude/templates/ship-presentation.html`:
 `/update` fetches updates directly from GitHub via curl — no local clone required. Install it once, then run `/update` in Claude Code any time you want to sync.
 
 ```bash
-curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update.md" \
-  -o ~/.claude/commands/update.md
+curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update-reviewsquad.md" \
+  -o ~/.claude/commands/update-reviewsquad.md
 ```
 
 After that, run `/update` in Claude Code to confirm everything is current. On first run it will download all tracked files and save the current version to `~/.claude/review-squad-version`. Future runs sync only what changed.
@@ -6286,7 +6286,7 @@ ls -la ~/.claude/commands/review.md
 ls -la ~/.claude/commands/ship.md
 ls -la ~/.claude/commands/audit.md
 ls -la ~/.claude/commands/quick.md
-ls -la ~/.claude/commands/update.md
+ls -la ~/.claude/commands/update-reviewsquad.md
 ls -la ~/.claude/commands/gsd/review.md
 
 # 5. Check HTML template

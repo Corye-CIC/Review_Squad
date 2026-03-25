@@ -1,5 +1,5 @@
 ---
-name: update
+name: update-reviewsquad
 description: Pull the latest Review Squad from the source repo and sync agents, commands, templates, and hooks to ~/.claude/
 argument-hint: ""
 allowed-tools:

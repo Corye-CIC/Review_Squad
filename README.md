@@ -39,7 +39,7 @@ The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 | `/audit` | Deep security, architecture, and systems audit (whole codebase or subsystem) | FC (systems/DB), Jared (security/arch), Nando (synthesis) |
 | `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | Domain heuristics (auto-routed) or any combination |
 | `/create-agent` | Interactively build a custom agent via Q&A — 6 templates, preview before write | — |
-| `/update` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, and hooks | — |
+| `/update-reviewsquad` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, and hooks | — |
 
 You can enter the lifecycle at any point. Smaller tasks can skip straight to `/consult` or `/review`. Use `/quick` for truly ad-hoc work that doesn't need the full lifecycle at all.
 
@@ -472,14 +472,14 @@ This directory is gitignored — it's local session state, not portable.
 
 ### Staying Up to Date
 
-Install the `/update` command once:
+Install the `/update-reviewsquad` command once:
 
 ```bash
-curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update.md" \
-  -o ~/.claude/commands/update.md
+curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update-reviewsquad.md" \
+  -o ~/.claude/commands/update-reviewsquad.md
 ```
 
-Then run `/update` in Claude Code any time to sync the latest agents, commands, templates, and hooks from GitHub — no local clone required.
+Then run `/update-reviewsquad` in Claude Code any time to sync the latest agents, commands, templates, and hooks from GitHub — no local clone required.
 
 ## Repository Structure
 
@@ -523,7 +523,7 @@ commands/                          # Lifecycle commands (10 commands)
   audit.md                         #   Deep security, architecture, and systems audit
   quick.md                         #   Ad-hoc agent dispatch (supports custom agents)
   create-agent.md                  #   Interactive custom agent builder
-  update.md                        #   Sync latest squad from GitHub via curl
+  update-reviewsquad.md            #   Sync latest squad from GitHub via curl
 hooks/
   review-squad-gate.js             # PostToolUse hook for review advisory
 templates/
