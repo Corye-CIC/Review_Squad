@@ -5846,7 +5846,17 @@ Create file `~/.claude/templates/ship-presentation.html`:
 
 ---
 
-### Step 6: Add `.review-squad/` to `.gitignore`
+### Step 6: Save repo path for `/update`
+
+Run this from inside the cloned repo directory. It seeds the config so `/update` never needs to prompt you for the path:
+
+```bash
+printf '%s\n' "$PWD" > ~/.claude/review-squad-repo
+```
+
+To get future updates, just run `/update` in Claude Code — it pulls from GitHub and syncs all agents, commands, templates, and hooks automatically.
+
+### Step 7: Add `.review-squad/` to `.gitignore`
 
 Add the following line to your project's `.gitignore`:
 
@@ -5878,7 +5888,7 @@ PM Cory creates and maintains the following directory structure inside `.review-
 
 ---
 
-### Step 7: Create the auto-fire hook
+### Step 8: Create the auto-fire hook
 
 The Review Squad includes a PostToolUse hook that automatically detects when a review should be suggested. It fires in two modes:
 
@@ -6153,7 +6163,7 @@ echo "node \"$(echo $HOME)/.claude/hooks/review-squad-gate.js\""
 
 ---
 
-### Step 8: Create memory files
+### Step 9: Create memory files
 
 The Review Squad uses two complementary memory systems (see [Two Memory Systems Explained](#two-memory-systems-explained) for details). This step sets up the Claude-level memory files.
 
@@ -6239,7 +6249,7 @@ Create file `MEMORY.md` in the memory directory:
 
 ---
 
-### Step 9: Verify installation
+### Step 10: Verify installation
 
 Run these checks to confirm everything is in place:
 
@@ -6289,7 +6299,7 @@ ls -la "$HOME/.claude/projects/${ENCODED_PATH}/memory/"
 
 > **Important:** After any agent file changes, exit Claude Code completely and restart before testing. The agent registry is built at process start — new/removed files are not picked up mid-session.
 
-### Step 10: Test with example commands
+### Step 11: Test with example commands
 
 Once installed, test the system in a Claude Code session:
 
