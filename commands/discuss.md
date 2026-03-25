@@ -34,6 +34,41 @@ $ARGUMENTS is provided by the user after the slash command (e.g., `/discuss Add 
 
 <process>
 
+## Step 0: Context Pre-Loading
+
+Apply the security denylist before reading any file: exclude `.env`, `*.pem`, `*.key`, `*.p12`, `*.cert`, `*.secret`, and any file with `password`, `secret`, or `token` in the filename (case-insensitive).
+
+**Discover:**
+```bash
+find . -name "CONTEXT.md" -not -path "*/node_modules/*" -not -path "*/.planning/*"
+```
+Also load prior phase outputs from `.review-squad/<project-name>/` (discussion, research, plan files as applicable per command).
+
+**Read:** Read all discovered files into orchestrator context (one pass).
+
+**Bundle:** Assemble `<injected-context>` blocks using this canonical format:
+```xml
+<injected-context>
+<context-meta command="/discuss" agent="{agent-name}" files="{n}" complete="{true|false}" />
+
+IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT call Read, Grep, or Glob for any file already present in this block. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+
+<shared-files>
+</shared-files>
+
+<agent-files>
+<file path="path/to/agent-specific-file.md">
+[file contents verbatim]
+</file>
+</agent-files>
+
+</injected-context>
+```
+
+For single-agent commands (discuss, research, plan): all files go into `<agent-files>`. `<shared-files>` is empty (`<shared-files></shared-files>`).
+
+Inject this block into every agent prompt in subsequent steps. Add at the top of each agent's task description: `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+
 ## Step 1: Gather initial context
 
 **Check for CONTEXT.md files first:**
@@ -60,12 +95,15 @@ mkdir -p "${SQUAD_DIR}/agent-notes"
 Spawn both agents using the Agent tool:
 
 **`emily-discuss`** receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+- The `<injected-context>` block assembled in Step 0
 - The task description ($ARGUMENTS)
-- Project context gathered in Step 1
 - Instruction to define requirements, success criteria, and accessibility needs
 - Working directory path
 
 **`pm-cory-early`** receives:
+- `Context is pre-loaded in <injected-context> below. Do not re-read those files.`
+- The `<injected-context>` block assembled in Step 0
 - The task description ($ARGUMENTS)
 - SQUAD_DIR path for loading persistent context
 - Phase instruction: "You are in the **discuss** phase — surface prior learnings, challenge assumptions, bounce ideas with Emily"
