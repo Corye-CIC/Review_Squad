@@ -2,6 +2,8 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+> **V3.5** — `/create-agent` — interactively build a custom agent via 5-question Q&A. Pick a template (security, quality, domain expert, docs, performance, or blank), name it, specialise it, pick a tone and tools. Preview before write. Custom agents use a `custom-` prefix so `/update` never overwrites them, and `/quick` dispatches them directly: `/quick <task> custom-{name}`.
+>
 > **V3.4** — `/update` rewritten to use curl. No local clone required: one `curl` installs the command, then `/update` pulls everything from GitHub directly. Version tracking via `~/.claude/review-squad-version`; first run syncs all files, incremental runs sync only what changed.
 >
 > **V3.3** — Context Pre-Loading Protocol. The orchestrator now reads all relevant files once before spawning any agent, injecting contents verbatim into each agent's prompt. Agents that receive pre-loaded context are barred from re-reading those files. In `/review`, 6 agents × N files collapses from 6N reads to 1 orchestrator read pass. All commands updated: `/discuss`, `/research`, `/plan`, `/consult`, `/implement`, `/review`, `/quick`.
@@ -36,6 +38,7 @@ The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 | `/ship` | Generate presentation, create PR, monitor CI, auto-fix failures | Emily, PM Cory, Nando |
 | `/audit` | Deep security, architecture, and systems audit (whole codebase or subsystem) | FC (systems/DB), Jared (security/arch), Nando (synthesis) |
 | `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | Domain heuristics (auto-routed) or any combination |
+| `/create-agent` | Interactively build a custom agent via Q&A — 6 templates, preview before write | — |
 | `/update` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, and hooks | — |
 
 You can enter the lifecycle at any point. Smaller tasks can skip straight to `/consult` or `/review`. Use `/quick` for truly ad-hoc work that doesn't need the full lifecycle at all.
@@ -345,6 +348,8 @@ Not every task needs all 7 phases. Here's how to shortcut efficiently:
 /quick <task description> fc,jared                    # self-select pre-flight
 /quick <task description> fc:implement,jared:review   # explicit — fires immediately
 /quick <task description> stevey,fc +nando            # self-select + Nando synthesis
+/quick <task description> custom-{name}               # dispatch a custom agent directly
+/quick <task description> custom-{name},jared:review  # custom agent + squad agent (squad must have :mode)
 ```
 
 **Agent aliases:** `fc` (Father Christmas), `jared`, `stevey` (Stevey Boy Choi), `cory` (PM Cory), `nando`, `emily`
@@ -352,6 +357,28 @@ Not every task needs all 7 phases. Here's how to shortcut efficiently:
 **You get:** Agent output(s) in `=== AGENT (mode) ===` format, plus Nando's synthesis if `+nando` was specified. No `.review-squad/` artifacts written.
 
 **Tip:** `/quick` is the zero-ceremony option. No plan, no brief, no persistent memory updates. Use it for focused questions, quick fixes, or spot checks where the full lifecycle would be overkill.
+
+### Custom Agents
+
+Create your own agents tailored to your project's domain using `/create-agent`. Custom agents live at `~/.claude/agents/custom-{name}.md` and are dispatched via `/quick` like any squad agent.
+
+```
+/create-agent
+```
+
+The command walks you through 5 questions:
+1. **Template** — security reviewer, code quality, domain expert, documentation, performance, or blank
+2. **Name** — becomes `custom-{name}.md`; validated lowercase/hyphens only
+3. **Specialization** — what the agent focuses on (e.g. "PCI DSS compliance", "React Query patterns")
+4. **Tone** — direct/blunt, collaborative, formal, or neutral
+5. **Tools** — defaults from template; any of Read, Write, Edit, Bash, Grep, Glob
+
+Shows a full preview before writing anything. `/update` never overwrites `custom-` agents.
+
+**Example:**
+```
+/quick review the payments module for PCI compliance issues custom-payments-expert
+```
 
 ### Efficiency Tips
 
@@ -485,7 +512,7 @@ agents/                            # Mode-specific agent files (25 files)
   stevey-boy-choi-consult.md       #   Stevey — consult mode
   stevey-boy-choi-implement.md     #   Stevey — implement mode
   stevey-boy-choi-review.md        #   Stevey — review mode
-commands/                          # Lifecycle commands (9 commands)
+commands/                          # Lifecycle commands (10 commands)
   discuss.md                       #   Problem exploration
   research.md                      #   Pattern and technology research
   plan.md                          #   Implementation planning
@@ -494,7 +521,8 @@ commands/                          # Lifecycle commands (9 commands)
   review.md                        #   Full squad code review
   ship.md                          #   Presentation, PR, CI monitoring
   audit.md                         #   Deep security, architecture, and systems audit
-  quick.md                         #   Ad-hoc agent dispatch
+  quick.md                         #   Ad-hoc agent dispatch (supports custom agents)
+  create-agent.md                  #   Interactive custom agent builder
   update.md                        #   Sync latest squad from GitHub via curl
 hooks/
   review-squad-gate.js             # PostToolUse hook for review advisory
