@@ -4,110 +4,145 @@ description: Pull the latest Review Squad from the source repo and sync agents, 
 argument-hint: ""
 allowed-tools:
   - Bash
-  - AskUserQuestion
 ---
 <objective>
-Pull the latest Review Squad release from the local clone of the repo and sync updated files into ~/.claude/. Shows exactly which files changed. Never touches GSD agents or any non-Review-Squad files.
+Pull the latest Review Squad release from GitHub via curl and sync updated files into ~/.claude/. Shows exactly which files changed. Never touches GSD agents or any non-Review-Squad files. No local clone required.
 </objective>
 
 <process>
 
-## Step 1 — Resolve Repo Path
-
-Read the saved config:
-```bash
-cat ~/.claude/review-squad-repo 2>/dev/null
-```
-
-If the file exists and contains a non-empty path, use it as `REPO`. Skip to Step 2.
-
-If missing or empty, attempt auto-detection:
-```bash
-for dir in ~/Claude/SubAgents ~/review-squad ~/Projects/review-squad ~/code/review-squad ~/dev/review-squad; do
-  [ -f "${dir}/agents/father-christmas-implement.md" ] && echo "$dir"
-done
-```
-
-- **Exactly one result:** use it as `REPO`, save it: `printf '%s\n' "$REPO" > ~/.claude/review-squad-repo`. Inform the user: `Auto-detected repo at {REPO} — saved to ~/.claude/review-squad-repo`
-- **Zero or multiple results:** use `AskUserQuestion` to ask: `"Enter the absolute path to your Review Squad repo clone (e.g. /home/you/Claude/SubAgents):"`. Validate that the entered path contains `agents/father-christmas-implement.md`. If invalid, stop: `"Path not recognised as a Review Squad repo. Check that agents/father-christmas-implement.md exists there."` If valid, save to `~/.claude/review-squad-repo` and continue.
-
-Verify the path is a git repo:
-```bash
-git -C "$REPO" rev-parse --git-dir > /dev/null 2>&1
-```
-If non-zero, stop: `"Path {REPO} is not a git repository. Fix ~/.claude/review-squad-repo and re-run /update."`
-
-## Step 2 — Record Pre-Pull State
+## Step 1 — Fetch Latest SHA
 
 ```bash
-BEFORE=$(git -C "$REPO" rev-parse HEAD)
-BEFORE_SHORT=$(git -C "$REPO" rev-parse --short HEAD)
+LATEST=$(curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/commits/main" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['sha'])")
 ```
 
-## Step 3 — Git Pull
+If the curl command fails or `LATEST` is empty, stop: `"Cannot reach GitHub API. Check your internet connection and try again."`
 
 ```bash
-git -C "$REPO" pull
+LATEST_SHORT=${LATEST:0:7}
 ```
 
-If exit code is non-zero, stop: `"git pull failed in {REPO}. Resolve the issue manually and re-run /update."`
+## Step 2 — Check Current Version
 
 ```bash
-AFTER=$(git -C "$REPO" rev-parse HEAD)
-AFTER_SHORT=$(git -C "$REPO" rev-parse --short HEAD)
+CURRENT=$(cat ~/.claude/review-squad-version 2>/dev/null)
+CURRENT_SHORT=${CURRENT:0:7}
 ```
 
-If `BEFORE == AFTER`, print `"Already up to date ({BEFORE_SHORT}). No files changed."` and stop — skip all copy steps.
+If `CURRENT` is non-empty and equals `LATEST`, print `"Already up to date ($LATEST_SHORT)."` and stop.
 
-## Step 4 — Identify Changed Files
+## Step 3 — Resolve Files to Sync
 
-Get added/modified files only (skip deletions — never auto-delete from ~/.claude/):
+**First run** (CURRENT is empty — no version file):
+
+Use the contents API to list all tracked files:
+
 ```bash
-git -C "$REPO" diff --name-only --diff-filter=AM "$BEFORE" "$AFTER" | grep -E '^(agents/|commands/|templates/ship-presentation\.html|hooks/review-squad-gate\.js)'
+curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/agents" \
+  | python3 -c "import json,sys; [print('agents/'+f['name']) for f in json.load(sys.stdin) if f['type']=='file' and f['name'].endswith('.md')]"
+
+curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands" \
+  | python3 -c "import json,sys; [print('commands/'+f['name']) for f in json.load(sys.stdin) if f['type']=='file' and f['name'].endswith('.md')]"
+
+curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands/gsd" \
+  | python3 -c "import json,sys; [print('commands/gsd/'+f['name']) for f in json.load(sys.stdin) if f['type']=='file' and f['name'].endswith('.md')]"
 ```
 
-Store as `CHANGED_FILES`. If `hooks/review-squad-gate.js` appears, set `HOOK_CHANGED=true`.
+Add to the list: `templates/ship-presentation.html` and `hooks/review-squad-gate.js`
 
-Also capture any deletions separately for the report (do not act on them):
+Set `FIRST_RUN=true`.
+
+**Incremental** (CURRENT is non-empty):
+
+Use the compare API to get only added/modified tracked files:
+
 ```bash
-git -C "$REPO" diff --name-only --diff-filter=D "$BEFORE" "$AFTER" | grep -E '^(agents/|commands/|templates/|hooks/)'
+curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/compare/${CURRENT}...${LATEST}" \
+  | python3 -c "
+import json, sys, re
+d = json.load(sys.stdin)
+for f in d.get('files', []):
+    if f['status'] not in ('added', 'modified'):
+        continue
+    name = f['filename']
+    if re.match(r'^agents/[^/]+\.md$', name): print(name)
+    elif re.match(r'^commands/[^/]+\.md$', name): print(name)
+    elif re.match(r'^commands/gsd/[^/]+\.md$', name): print(name)
+    elif name in ('templates/ship-presentation.html', 'hooks/review-squad-gate.js'): print(name)
+"
 ```
 
-## Step 5 — Sync Files
+Store the result as `FILES_TO_SYNC`. If empty, print:
+```
+Review Squad repo advanced ($CURRENT_SHORT → $LATEST_SHORT) but no tracked files changed.
+```
+Save `$LATEST` to `~/.claude/review-squad-version` and stop.
+
+Set `FIRST_RUN=false`.
+
+Also capture deletions for the report (do not act on them):
+```bash
+curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/compare/${CURRENT}...${LATEST}" \
+  | python3 -c "
+import json, sys, re
+d = json.load(sys.stdin)
+for f in d.get('files', []):
+    if f['status'] != 'removed':
+        continue
+    name = f['filename']
+    if re.match(r'^(agents|commands|templates|hooks)/', name): print(name)
+"
+```
+
+Store as `DELETED_FILES`.
+
+## Step 4 — Download Files
 
 Ensure destination directories exist:
 ```bash
 mkdir -p ~/.claude/agents ~/.claude/commands ~/.claude/commands/gsd ~/.claude/templates ~/.claude/hooks
 ```
 
-For each file in `CHANGED_FILES`:
-- `agents/*.md` → `cp -f "$REPO/{file}" ~/.claude/agents/`
-- `commands/*.md` → `cp -f "$REPO/{file}" ~/.claude/commands/`
-- `commands/gsd/*.md` → `cp -f "$REPO/{file}" ~/.claude/commands/gsd/`
-- `templates/ship-presentation.html` → `cp -f "$REPO/templates/ship-presentation.html" ~/.claude/templates/`
-- `hooks/review-squad-gate.js` → `cp -f "$REPO/hooks/review-squad-gate.js" ~/.claude/hooks/`
+Raw base URL: `https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/`
 
-Track count of files copied.
+For each file in `FILES_TO_SYNC`, download it to the matching destination:
+- `agents/NAME.md` → `~/.claude/agents/NAME.md`
+- `commands/NAME.md` → `~/.claude/commands/NAME.md`
+- `commands/gsd/NAME.md` → `~/.claude/commands/gsd/NAME.md`
+- `templates/ship-presentation.html` → `~/.claude/templates/ship-presentation.html`
+- `hooks/review-squad-gate.js` → `~/.claude/hooks/review-squad-gate.js`
+
+Use `curl -sf` with `-o` for each download. If any download fails (non-zero exit), report the failure and continue with the remaining files — do not abort the entire sync.
+
+Set `HOOK_CHANGED=true` if `hooks/review-squad-gate.js` was in `FILES_TO_SYNC`.
+
+Track count of files successfully downloaded as `N`.
+
+## Step 5 — Save Version
+
+```bash
+printf '%s\n' "$LATEST" > ~/.claude/review-squad-version
+```
 
 ## Step 6 — Report
 
+**Standard report:**
 ```
-Review Squad updated  ({BEFORE_SHORT}..{AFTER_SHORT})
+Review Squad updated  ($CURRENT_SHORT → $LATEST_SHORT)
 
-Files synced ({N}):
+Files synced (N):
   {file 1}
   {file 2}
   ...
-
-Repo: {REPO}
 ```
 
-If no Review Squad files were in the diff (repo advanced but only non-tracked files changed):
+If `FIRST_RUN=true`, replace the header line with:
 ```
-Review Squad repo updated ({BEFORE_SHORT}..{AFTER_SHORT}) but no tracked files changed.
+Review Squad installed  ($LATEST_SHORT)
 ```
 
-If any files were deleted from the repo, note them without acting:
+If `DELETED_FILES` is non-empty, append:
 ```
 Note: the following files were removed from the repo but NOT deleted from ~/.claude/ — remove manually if desired:
   {deleted file 1}
@@ -123,17 +158,16 @@ Check: cat ~/.claude/settings.json | grep review-squad
 </process>
 
 <success_criteria>
-- [ ] Reads repo path from ~/.claude/review-squad-repo
-- [ ] Auto-detects repo path on first run; saves on success
-- [ ] Falls back to AskUserQuestion when detection finds zero or multiple candidates
-- [ ] Validates path using sentinel file (father-christmas-implement.md) before trusting it
-- [ ] Records pre-pull HEAD before git pull
-- [ ] Exits cleanly if already up to date — no copies run
-- [ ] git pull failure stops execution with a clear message
-- [ ] Uses --diff-filter=AM — never auto-deletes files from ~/.claude/
-- [ ] Only copies files within agents/, commands/, templates/ship-presentation.html, hooks/review-squad-gate.js
+- [ ] Fetches latest SHA from GitHub API — stops with clear message if unreachable
+- [ ] Reads version from ~/.claude/review-squad-version; exits cleanly if already up to date
+- [ ] First run: downloads all tracked files via contents API (no prior version needed)
+- [ ] Incremental: uses compare API to download only added/modified tracked files
+- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), commands/gsd/*.md, templates/ship-presentation.html, hooks/review-squad-gate.js
+- [ ] Never auto-deletes files from ~/.claude/ — deletions reported only
 - [ ] Never touches GSD agents or other non-Review-Squad files
-- [ ] Summary lists every file synced by name with before/after SHAs
-- [ ] Deletions are reported but not acted on
+- [ ] Individual download failures are reported but do not abort the sync
+- [ ] Saves new SHA to ~/.claude/review-squad-version after sync
+- [ ] Summary lists every file synced with before/after SHAs
 - [ ] Hook-changed warning appears when hooks/review-squad-gate.js is in the diff
+- [ ] No local clone required — works from curl alone
 </success_criteria>

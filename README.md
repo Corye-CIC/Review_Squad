@@ -2,6 +2,8 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+> **V3.4** — `/update` rewritten to use curl. No local clone required: one `curl` installs the command, then `/update` pulls everything from GitHub directly. Version tracking via `~/.claude/review-squad-version`; first run syncs all files, incremental runs sync only what changed.
+>
 > **V3.3** — Context Pre-Loading Protocol. The orchestrator now reads all relevant files once before spawning any agent, injecting contents verbatim into each agent's prompt. Agents that receive pre-loaded context are barred from re-reading those files. In `/review`, 6 agents × N files collapses from 6N reads to 1 orchestrator read pass. All commands updated: `/discuss`, `/research`, `/plan`, `/consult`, `/implement`, `/review`, `/quick`.
 
 ## The Squad
@@ -34,6 +36,7 @@ The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 | `/ship` | Generate presentation, create PR, monitor CI, auto-fix failures | Emily, PM Cory, Nando |
 | `/audit` | Deep security, architecture, and systems audit (whole codebase or subsystem) | FC (systems/DB), Jared (security/arch), Nando (synthesis) |
 | `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | Domain heuristics (auto-routed) or any combination |
+| `/update` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, and hooks | — |
 
 You can enter the lifecycle at any point. Smaller tasks can skip straight to `/consult` or `/review`. Use `/quick` for truly ad-hoc work that doesn't need the full lifecycle at all.
 
@@ -440,6 +443,17 @@ This directory is gitignored — it's local session state, not portable.
 
 5. Ensure `.review-squad/` is in your project's `.gitignore`.
 
+### Staying Up to Date
+
+Install the `/update` command once:
+
+```bash
+curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update.md" \
+  -o ~/.claude/commands/update.md
+```
+
+Then run `/update` in Claude Code any time to sync the latest agents, commands, templates, and hooks from GitHub — no local clone required.
+
 ## Repository Structure
 
 ```
@@ -481,6 +495,7 @@ commands/                          # Lifecycle commands (9 commands)
   ship.md                          #   Presentation, PR, CI monitoring
   audit.md                         #   Deep security, architecture, and systems audit
   quick.md                         #   Ad-hoc agent dispatch
+  update.md                        #   Sync latest squad from GitHub via curl
 hooks/
   review-squad-gate.js             # PostToolUse hook for review advisory
 templates/

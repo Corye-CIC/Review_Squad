@@ -5846,15 +5846,16 @@ Create file `~/.claude/templates/ship-presentation.html`:
 
 ---
 
-### Step 6: Save repo path for `/update`
+### Step 6: Install the `/update` command
 
-Run this from inside the cloned repo directory. It seeds the config so `/update` never needs to prompt you for the path:
+`/update` fetches updates directly from GitHub via curl — no local clone required. Install it once, then run `/update` in Claude Code any time you want to sync.
 
 ```bash
-printf '%s\n' "$PWD" > ~/.claude/review-squad-repo
+curl -sf "https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/commands/update.md" \
+  -o ~/.claude/commands/update.md
 ```
 
-To get future updates, just run `/update` in Claude Code — it pulls from GitHub and syncs all agents, commands, templates, and hooks automatically.
+After that, run `/update` in Claude Code to confirm everything is current. On first run it will download all tracked files and save the current version to `~/.claude/review-squad-version`. Future runs sync only what changed.
 
 ### Step 7: Add `.review-squad/` to `.gitignore`
 
