@@ -55,6 +55,19 @@ curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/agents" \
 curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands" \
   | python3 -c "import json,sys; [print('commands/'+f['name']) for f in json.load(sys.stdin) if f['type']=='file' and f['name'].endswith('.md')]"
 
+# Also list files in each commands subdirectory
+curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands" \
+  | python3 -c "
+import json, sys, urllib.request
+dirs = [f['name'] for f in json.load(sys.stdin) if f['type']=='dir']
+for d in dirs:
+    url = f'https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands/{d}'
+    with urllib.request.urlopen(url) as r:
+        for f in json.loads(r.read()):
+            if f['type']=='file' and f['name'].endswith('.md'):
+                print(f'commands/{d}/{f[\"name\"]}')
+"
+
 ```
 
 Add to the list: `templates/ship-presentation.html`, `hooks/review-squad-gate.js`, `hooks/review-squad-context-monitor.js`, and `hooks/review-squad-statusline.js`
@@ -75,7 +88,7 @@ for f in d.get('files', []):
         continue
     name = f['filename']
     if re.match(r'^agents/[^/]+\.md$', name): print(name)
-    elif re.match(r'^commands/[^/]+\.md$', name): print(name)
+    elif re.match(r'^commands/[^/]+(?:/[^/]+)?\.md$', name): print(name)
     elif name in ('templates/ship-presentation.html', 'hooks/review-squad-gate.js', 'hooks/review-squad-context-monitor.js', 'hooks/review-squad-statusline.js'): print(name)
 "
 ```
@@ -118,6 +131,7 @@ Skip any file in the `agents/` category whose destination basename starts with `
 For each file in `FILES_TO_SYNC`, download it to the matching destination. **For `agents/NAME.md` entries only: skip if NAME starts with `custom-`.**
 - `agents/NAME.md` → `~/.claude/agents/NAME.md`  *(skip if NAME starts with `custom-`)*
 - `commands/NAME.md` → `~/.claude/commands/NAME.md`
+- `commands/SUBDIR/NAME.md` → `~/.claude/commands/SUBDIR/NAME.md`  *(create `~/.claude/commands/SUBDIR/` if needed)*
 - `templates/ship-presentation.html` → `~/.claude/templates/ship-presentation.html`
 - `hooks/review-squad-gate.js` → `~/.claude/hooks/review-squad-gate.js`
 - `hooks/review-squad-context-monitor.js` → `~/.claude/hooks/review-squad-context-monitor.js`
@@ -172,7 +186,8 @@ Check: cat ~/.claude/settings.json | grep review-squad
 - [ ] Reads version from ~/.claude/review-squad-version; exits cleanly if already up to date
 - [ ] First run: downloads all tracked files via contents API (no prior version needed)
 - [ ] Incremental: uses compare API to download only added/modified tracked files
-- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), templates/ship-presentation.html, hooks/review-squad-gate.js, hooks/review-squad-context-monitor.js, hooks/review-squad-statusline.js
+- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), commands/*/*.md (one-level subdirs), templates/ship-presentation.html, hooks/review-squad-gate.js, hooks/review-squad-context-monitor.js, hooks/review-squad-statusline.js
+- [ ] Commands in subdirectories (e.g. commands/agent-chat/on.md) sync to ~/.claude/commands/SUBDIR/NAME.md — subdir created if needed
 - [ ] Never auto-deletes files from ~/.claude/ — deletions reported only
 - [ ] Never overwrites files in ~/.claude/agents/ whose basename starts with `custom-`
 - [ ] Never touches GSD agents or other non-Review-Squad files
