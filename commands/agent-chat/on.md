@@ -86,6 +86,8 @@ agent-chat started (PID $PID)
   Agent WS:  ws://127.0.0.1:4000
   Dashboard: http://127.0.0.1:4001
   Log:       /tmp/agent-chat.log
+
+Run /agent-chat:off when done — it will prompt to save the chat log as markdown before stopping.
 ```
 
 </process>

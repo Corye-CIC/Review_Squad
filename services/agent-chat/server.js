@@ -215,6 +215,29 @@ const dashServer = http.createServer((req, res) => {
     return;
   }
 
+  if (req.url === '/export') {
+    const lines = [
+      '# Agent Chat Log',
+      '',
+      `**Room:** ${currentRoom || '(none)'}`,
+      `**Exported:** ${new Date().toISOString()}`,
+      `**Messages:** ${messageHistory.length}`,
+      '',
+    ];
+
+    for (const msg of messageHistory) {
+      const time = new Date(msg.timestamp).toISOString().slice(11, 19);
+      lines.push('---', '', `**${time}** · ${msg.agent} · ${msg.level}`, '', msg.message, '');
+    }
+
+    const markdown = lines.join('\n');
+    res.writeHead(200, {
+      'Content-Type': 'text/markdown; charset=utf-8',
+      'Content-Length': Buffer.byteLength(markdown),
+    }).end(markdown);
+    return;
+  }
+
   if (req.url === '/' || req.url === '/index.html') {
     const indexPath = path.join(__dirname, 'public', 'index.html');
     fs.readFile(indexPath, (err, data) => {
