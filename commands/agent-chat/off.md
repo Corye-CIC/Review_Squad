@@ -1,6 +1,6 @@
 ---
 name: agent-chat:off
-description: Stop the agent-chat server if it is running. The chat log is always auto-saved to /tmp — prompts to copy it to a permanent location before stopping. Safe to run if not running — reports status and exits cleanly.
+description: Stop the agent-chat server if it is running. If messages were captured, prompts to copy the log from /tmp to a permanent location before stopping. Safe to run if not running — reports status and exits cleanly.
 argument-hint: ""
 allowed-tools:
   - Bash
