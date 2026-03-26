@@ -2,6 +2,8 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+> **V3.7** — Agent quality pass derived from experimental multi-agent debate session. Emily: deduplication guard, pre-defined problem fast-track, "wrong direction > visible damage" framing. FC review: cross-agent connections output section. Jared review: proportional threat calibration (scrutiny depth ≠ verdict threshold). Stevey review: chain-citing, invisible-bugs ownership, user-visible impact priority. Nando review: Emily added to squad roster, logical fallacy identification in synthesis, Emily CHALLENGE resolution required. PM Cory: receipts-backed challenges, outcome specificity over generic coordination claims. Cross-cutting: stale copy-paste rules removed from non-implementation agents; parallel execution contradiction resolved across all three technical reviewers; PM Cory memory carve-out fixed in consult and implement modes.
+>
 > **V3.6** — Context monitor hook + GSD removal + audit memory persistence + agent chat. New `review-squad-context-monitor.js` hook warns at 65% context used (WARNING) and 75% (CRITICAL) so you know when to `/compact` before auto-compaction data loss. GSD workflow integration removed — the Review Squad is now a standalone tool with no external dependencies. `/audit` now persists findings to `.review-squad/learnings.jsonl` and `review-history.md` via PM Cory after each audit. All 25 agents can now broadcast to a live chat dashboard via `csend` — use `/agent-chat:on` to start the server and open `http://127.0.0.1:4001` to watch agents in real time.
 >
 > **V3.5** — `/create-agent` — interactively build a custom agent via 5-question Q&A. Pick a template (security, quality, domain expert, docs, performance, or blank), name it, specialise it, pick a tone and tools. Preview before write. Custom agents use a `custom-` prefix so `/update` never overwrites them, and `/quick` dispatches them directly: `/quick <task> custom-{name}`.
@@ -95,7 +97,7 @@ Ruthlessly practical and allergic to waste. Sees the whole system end-to-end and
 
 **Review scores:** `Security: PASS/WARN/FAIL` | `Efficiency: PASS/WARN/FAIL` | `Reuse: PASS/WARN/FAIL`
 
-**Blocker rules:** Security issues are always blockers — no exceptions. Points to EXACT file and function when flagging reuse. Quantifies efficiency impact (O(n^2) vs O(n)).
+**Blocker rules:** Confirmed security issues are always blockers. Threat calibration governs scrutiny depth — a public read-only endpoint gets proportional scrutiny, but any confirmed vulnerability blocks regardless of context. Points to EXACT file and function when flagging reuse. Quantifies efficiency impact (O(n^2) vs O(n)).
 
 ---
 
@@ -173,7 +175,7 @@ Calm, authoritative, fair. Consolidates four specialist opinions into one clear 
 
 **Verdict:** APPROVE / REVISE / BLOCK
 
-**Hard rules:** Never overrides Jared's security failures or Stevey's accessibility blockers without personal verification. Prioritizes ruthlessly. Resolves contradictions explicitly. If all agents approve clean, doesn't invent problems.
+**Hard rules:** Never overrides Jared's security failures or Stevey's accessibility blockers without personal verification. If Emily issues a CHALLENGE against an APPROVE verdict, addresses it in Reviewer Disagreements — does not let it pass to the user unaddressed. Identifies reasoning fallacies in agent findings (importance-by-catastrophe, conflating criticality with contribution). Prioritizes ruthlessly. Resolves contradictions explicitly. If all agents approve clean, doesn't invent problems.
 
 ---
 
