@@ -2,7 +2,7 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
-> **V3.6** — Context monitor hook + GSD removal + audit memory persistence. New `review-squad-context-monitor.js` hook warns at 65% context used (WARNING) and 75% (CRITICAL) so you know when to `/compact` before auto-compaction data loss. GSD workflow integration removed — the Review Squad is now a standalone tool with no external dependencies. `/audit` now persists findings to `.review-squad/learnings.jsonl` and `review-history.md` via PM Cory after each audit. `/update-reviewsquad` syncs the new context monitor hook alongside the gate hook.
+> **V3.6** — Context monitor hook + GSD removal + audit memory persistence + agent chat. New `review-squad-context-monitor.js` hook warns at 65% context used (WARNING) and 75% (CRITICAL) so you know when to `/compact` before auto-compaction data loss. GSD workflow integration removed — the Review Squad is now a standalone tool with no external dependencies. `/audit` now persists findings to `.review-squad/learnings.jsonl` and `review-history.md` via PM Cory after each audit. All 25 agents can now broadcast to a live chat dashboard via `csend` — use `/agent-chat:on` to start the server and open `http://127.0.0.1:4001` to watch agents in real time.
 >
 > **V3.5** — `/create-agent` — interactively build a custom agent via 5-question Q&A. Pick a template (security, quality, domain expert, docs, performance, or blank), name it, specialise it, pick a tone and tools. Preview before write. Custom agents use a `custom-` prefix so `/update` never overwrites them, and `/quick` dispatches them directly: `/quick <task> custom-{name}`.
 >
@@ -42,6 +42,8 @@ The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 | `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | Domain heuristics (auto-routed) or any combination |
 | `/create-agent` | Interactively build a custom agent via Q&A — 6 templates, preview before write | — |
 | `/update-reviewsquad` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, and hooks | — |
+| `/agent-chat:on` | Start the agent chat server (ports 4000 + 4001) as a background daemon | — |
+| `/agent-chat:off` | Stop the agent chat server if running | — |
 
 You can enter the lifecycle at any point. Smaller tasks can skip straight to `/consult` or `/review`. Use `/quick` for truly ad-hoc work that doesn't need the full lifecycle at all.
 
@@ -532,7 +534,7 @@ agents/                            # Mode-specific agent files (25 files)
   stevey-boy-choi-consult.md       #   Stevey — consult mode
   stevey-boy-choi-implement.md     #   Stevey — implement mode
   stevey-boy-choi-review.md        #   Stevey — review mode
-commands/                          # Lifecycle commands (10 commands)
+commands/                          # Lifecycle commands (10) + utilities (2)
   discuss.md                       #   Problem exploration
   research.md                      #   Pattern and technology research
   plan.md                          #   Implementation planning
@@ -544,6 +546,9 @@ commands/                          # Lifecycle commands (10 commands)
   quick.md                         #   Ad-hoc agent dispatch (supports custom agents)
   create-agent.md                  #   Interactive custom agent builder
   update-reviewsquad.md            #   Sync latest squad from GitHub via curl
+  agent-chat/
+    on.md                          #   Start the agent chat server as a background daemon
+    off.md                         #   Stop the agent chat server
 hooks/
   review-squad-gate.js             # PostToolUse hook — review advisory at wrap-up points
   review-squad-context-monitor.js  # PostToolUse hook — context window WARNING/CRITICAL alerts
