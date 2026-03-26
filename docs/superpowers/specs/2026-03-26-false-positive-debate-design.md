@@ -115,9 +115,11 @@ Each prompt contains only what the agent needs — no answer key, no hints.
 
 **Stevey:** "Review the following TypeScript code for connectivity patterns, data pathway efficiency, and service integration health. State your findings clearly."
 
-**PM Cory:** "Review the following TypeScript code. Challenge any findings from other agents that appear disproportionate to actual risk or that conflate pattern preference with correctness."
+**PM Cory (Round 1):** "Review the following TypeScript code from a program management perspective — is the approach sound, are there coordination concerns, hidden complexity, or scope risks?"
 
-**Nando:** "You have received a code sample and four rounds of agent review. Synthesize the findings. Determine which concerns are valid issues and which are false positives. Explain your reasoning for each determination."
+**PM Cory (Round 2):** "You have received the code sample and all Round 1 findings from FC, Jared, and Stevey. Challenge any findings that appear disproportionate to actual risk or that conflate pattern preference with correctness."
+
+**Nando:** "You have received a code sample and two rounds of agent review (openings and rebuttals). Synthesize the findings. Determine which concerns are valid issues and which are false positives. Explain your reasoning for each determination."
 
 **Emily (receives answer key):** "Score this debate. For each expected false positive, note whether it was flagged in Round 1, whether it was challenged in Round 2, and whether Nando correctly cleared it in Round 3. Count phantom issues invented. Write a 1-2 paragraph debrief."
 
@@ -157,14 +159,14 @@ Saved to `.review-squad/debate-reports/YYYY-MM-DD-false-positive.md`.
 ---
 
 ## Emily's Validation
-| Expected False Positive | Flagged R1 | Resolved by R3 | Notes |
-|---|---|---|---|
-| SQL injection | | | |
-| Dual loops inefficiency | | | |
-| CHUNK_SIZE magic number | | | |
-| DRY violation | | | |
-| Missing transaction | | | |
-| N+1 pattern | | | |
+| Expected False Positive | Flagged R1 | Challenged R2 | Cleared by Nando | Notes |
+|---|---|---|---|---|
+| SQL injection | | | | |
+| Dual loops inefficiency | | | | |
+| CHUNK_SIZE magic number | | | | |
+| DRY violation | | | | |
+| Missing transaction | | | | |
+| N+1 pattern | | | | |
 
 **False positives correctly cleared:** X / 6
 **Phantom issues invented:** N
