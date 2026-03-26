@@ -1,12 +1,12 @@
 ---
 name: agent-chat:off
-description: Stop the agent-chat server if it is running. Prompts to save the chat log as markdown before stopping. Safe to run if not running — reports status and exits cleanly.
+description: Stop the agent-chat server if it is running. The chat log is always auto-saved to /tmp — prompts to copy it to a permanent location before stopping. Safe to run if not running — reports status and exits cleanly.
 argument-hint: ""
 allowed-tools:
   - Bash
 ---
 <objective>
-Gracefully stop the agent-chat server. Before stopping, fetch the chat log and offer to save it as markdown. Read the PID file, verify the process is alive, send SIGTERM, wait for clean exit, and clean up.
+Gracefully stop the agent-chat server. The server auto-saves the log to /tmp on every 10 messages and on shutdown — notes are never lost. Before stopping, fetch the auto-save path and offer to copy the log to a permanent location. Read the PID file, verify the process is alive, send SIGTERM, wait for clean exit, and clean up.
 </objective>
 
 <process>
@@ -34,42 +34,48 @@ agent-chat is not running (PID file exists but process $PID is gone).
 Remove the stale PID file: `rm -f "$PID_FILE"`
 Stop.
 
-## Step 2 — Fetch and offer to save the chat log
+## Step 2 — Offer to copy the auto-saved log to a permanent location
 
 ```bash
-EXPORT="$(curl -sf --max-time 2 "http://127.0.0.1:4001/export" || echo "")"
+INFO="$(curl -sf --max-time 2 "http://127.0.0.1:4001/auto-save-path" || echo "")"
 ```
 
-Parse the message count and room name from the export header:
+Parse the auto-save path and message count:
 ```bash
-MSG_COUNT="$(echo "$EXPORT" | grep '^\*\*Messages:\*\*' | grep -o '[0-9]*')"
-ROOM="$(echo "$EXPORT" | grep '^\*\*Room:\*\*' | sed 's/\*\*Room:\*\* //')"
+AUTO_SAVE_PATH="$(echo "$INFO" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['path'])" 2>/dev/null || echo "")"
+MSG_COUNT="$(echo "$INFO" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['messages'])" 2>/dev/null || echo "0")"
 ```
 
-If `MSG_COUNT` is empty or 0, skip the save prompt and proceed to Step 3.
+If `MSG_COUNT` is 0 or `AUTO_SAVE_PATH` is empty, skip the copy prompt and proceed to Step 3.
 
 If `MSG_COUNT` > 0:
 
-Resolve a default save path. Use the current git repo root if available:
+Resolve a permanent destination:
 ```bash
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$HOME")"
+ROOM="$(curl -sf --max-time 1 "http://127.0.0.1:4001/auto-save-path" | python3 -c "import json,sys; ..." 2>/dev/null || echo "session")"
 DATE_STR="$(date +%Y-%m-%d-%H%M)"
 SAFE_ROOM="$(echo "$ROOM" | tr '/' '-' | tr ' ' '-')"
-DEFAULT_PATH="${REPO_ROOT}/.review-squad/agent-chat-${SAFE_ROOM}-${DATE_STR}.md"
+DEFAULT_DEST="${REPO_ROOT}/.review-squad/agent-chat-${SAFE_ROOM}-${DATE_STR}.md"
 ```
 
-Ask the user: **"Save chat log? ($MSG_COUNT messages, room: $ROOM). Save to $DEFAULT_PATH? (yes / no / custom path)"**
-
-- **yes** — save to `$DEFAULT_PATH`
-- **no** — skip
-- **custom path** — save to the path the user provides
-
-To save:
+Fetch the room name from the export header for the default filename:
 ```bash
-mkdir -p "$(dirname "$SAVE_PATH")"
-printf '%s\n' "$EXPORT" > "$SAVE_PATH"
+ROOM="$(curl -sf --max-time 2 "http://127.0.0.1:4001/export" | grep '^\*\*Room:\*\*' | sed 's/\*\*Room:\*\* //' | tr ' ' '-' || echo "session")"
 ```
-Confirm: `Chat log saved to $SAVE_PATH`
+
+Tell the user: **"Chat log auto-saved to `$AUTO_SAVE_PATH` ($MSG_COUNT messages). Copy to permanent location? Default: `$DEFAULT_DEST` (yes / no / custom path)"**
+
+- **yes** — copy to `$DEFAULT_DEST`
+- **no** — leave at `$AUTO_SAVE_PATH` (survives until next session overwrites it)
+- **custom path** — copy to the path the user provides
+
+To copy:
+```bash
+mkdir -p "$(dirname "$DEST")"
+cp "$AUTO_SAVE_PATH" "$DEST"
+```
+Confirm: `Chat log copied to $DEST (also kept at $AUTO_SAVE_PATH)`
 
 ## Step 3 — Stop the server
 
@@ -111,11 +117,11 @@ agent-chat stopped (PID $PID).
 
 <success_criteria>
 - [ ] Reports cleanly if not running — no error, no crash
-- [ ] Fetches log from GET /export before stopping
-- [ ] Skips save prompt if no messages
-- [ ] Prompts with message count, room name, and default path when messages exist
+- [ ] Fetches auto-save path and message count from GET /auto-save-path
+- [ ] Skips copy prompt if no messages
+- [ ] Informs user the log is already at AUTO_SAVE_PATH; prompts to copy to permanent location
 - [ ] Accepts yes / no / custom path response
-- [ ] Saves markdown to chosen path, creating parent directories as needed
+- [ ] Copies to chosen path (cp, not mv — original stays in /tmp until overwritten by next session)
 - [ ] Sends SIGTERM for graceful shutdown; falls back to SIGKILL after 5s
 - [ ] Removes /tmp/agent-chat.pid on exit
 - [ ] Reports save path and stop outcome

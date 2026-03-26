@@ -39,6 +39,11 @@ const RATE_LIMIT_WINDOW_MS = 10_000;  // 10 seconds
 // Message history kept in memory — last 500 messages.
 const MAX_HISTORY = 500;
 
+// Auto-save: written every AUTO_SAVE_INTERVAL messages and on shutdown.
+// Survives dirty exits (process killed, session closed without /agent-chat:off).
+const AUTO_SAVE_PATH = path.join(os.tmpdir(), 'agent-chat-log.md');
+const AUTO_SAVE_INTERVAL = 10; // messages between flushes
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -72,6 +77,32 @@ function broadcastToDashboard(payload) {
   }
 }
 
+/** Build the markdown export string from current messageHistory. */
+function buildMarkdown() {
+  const lines = [
+    '# Agent Chat Log',
+    '',
+    `**Room:** ${currentRoom || '(none)'}`,
+    `**Exported:** ${new Date().toISOString()}`,
+    `**Messages:** ${messageHistory.length}`,
+    '',
+  ];
+  for (const msg of messageHistory) {
+    const time = new Date(msg.timestamp).toISOString().slice(11, 19);
+    lines.push('---', '', `**${time}** · ${msg.agent} · ${msg.level}`, '', msg.message, '');
+  }
+  return lines.join('\n');
+}
+
+/** Write the current log to AUTO_SAVE_PATH. Fire-and-forget — never throws. */
+function autoSave() {
+  try {
+    fs.writeFileSync(AUTO_SAVE_PATH, buildMarkdown(), 'utf8');
+  } catch (err) {
+    log(`auto-save failed: ${err.message}`);
+  }
+}
+
 /** Store a message in history (capped at MAX_HISTORY) and broadcast it. */
 function recordAndBroadcast(msg) {
   // Dashboard always renders via textContent — no server-side HTML escaping needed.
@@ -89,6 +120,11 @@ function recordAndBroadcast(msg) {
   }
 
   broadcastToDashboard({ type: 'message', ...safe });
+
+  // Auto-save every AUTO_SAVE_INTERVAL messages
+  if (messageHistory.length % AUTO_SAVE_INTERVAL === 0) {
+    autoSave();
+  }
 }
 
 /** Broadcast a lifecycle event to dashboard clients. */
@@ -216,25 +252,17 @@ const dashServer = http.createServer((req, res) => {
   }
 
   if (req.url === '/export') {
-    const lines = [
-      '# Agent Chat Log',
-      '',
-      `**Room:** ${currentRoom || '(none)'}`,
-      `**Exported:** ${new Date().toISOString()}`,
-      `**Messages:** ${messageHistory.length}`,
-      '',
-    ];
-
-    for (const msg of messageHistory) {
-      const time = new Date(msg.timestamp).toISOString().slice(11, 19);
-      lines.push('---', '', `**${time}** · ${msg.agent} · ${msg.level}`, '', msg.message, '');
-    }
-
-    const markdown = lines.join('\n');
+    const markdown = buildMarkdown();
     res.writeHead(200, {
       'Content-Type': 'text/markdown; charset=utf-8',
       'Content-Length': Buffer.byteLength(markdown),
     }).end(markdown);
+    return;
+  }
+
+  if (req.url === '/auto-save-path') {
+    const body = JSON.stringify({ path: AUTO_SAVE_PATH, messages: messageHistory.length });
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }).end(body);
     return;
   }
 
@@ -291,6 +319,12 @@ dashServer.listen(DASH_PORT, DASH_HOST, () => {
 
 function shutdown(signal) {
   log(`Received ${signal}, shutting down`);
+
+  // Final auto-save before closing connections
+  if (messageHistory.length > 0) {
+    autoSave();
+    log(`auto-saved ${messageHistory.length} messages to ${AUTO_SAVE_PATH}`);
+  }
 
   for (const ws of agentClients.keys()) ws.close();
   for (const ws of dashboardClients) ws.close();
