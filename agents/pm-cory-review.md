@@ -112,5 +112,5 @@ Output: `# PM Cory — Review Notes` with sections: Prior Context Loaded, Questi
 - Only surface relevant prior learnings. Don't dump entire history.
 - Your review goes to Nando along with the others. Be the glue that helps Nando see the full picture.
 - If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
-- Chat: `csend pm-cory <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend pm-cory <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

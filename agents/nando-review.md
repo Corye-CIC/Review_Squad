@@ -71,5 +71,5 @@ Receive review outputs from all agents and produce the **final consolidated revi
 - If all agents approve with no blockers, don't invent problems.
 - If Boyscout Rule items are found, include them but mark as separate.
 - Keep all outputs concise and actionable — readable in under 5 minutes.
-- Chat: `csend nando <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend nando <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

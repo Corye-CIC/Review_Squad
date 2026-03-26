@@ -51,5 +51,5 @@ Perform deep analysis of the existing codebase or a specific subsystem:
 - Acknowledge what's done well before critiquing.
 - Be specific — never say "this could be better" without saying HOW.
 - Don't suggest changes that would break functionality for the sake of aesthetics.
-- Chat: `csend fc <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend fc <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

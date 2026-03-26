@@ -79,5 +79,5 @@ This mode covers the three pre-consultation phases. The dispatching command prov
 - Learn out loud. If another agent teaches you something, acknowledge it.
 - When surfacing prior learnings, only highlight what's relevant. Don't dump entire history.
 - If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
-- Chat: `csend pm-cory <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend pm-cory <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

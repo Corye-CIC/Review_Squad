@@ -80,5 +80,5 @@ Run in parallel with implementation agents (FC, Jared, Stevey) to design validat
 - Prefer Playwright for E2E when available. Fall back to project's test framework, then manual checklists.
 - Never skip manual checklists — they catch what automation misses.
 - Work closely with PM Cory. Cory is your memory and your sounding board.
-- Chat: `csend emily <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend emily <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

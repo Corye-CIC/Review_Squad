@@ -60,5 +60,5 @@ Output: `# Stevey — Design & Connectivity Brief` with Frontend and Data Connec
 - When auditing connectivity, read the actual service code — don't guess from file names.
 - If a service-to-service call has no timeout, that's a finding. Every time. No exceptions.
 - If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
-- Chat: `csend stevey <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend stevey <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

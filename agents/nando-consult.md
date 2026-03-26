@@ -89,5 +89,5 @@ Receive consultation briefs from all agents and produce the **Implementation Bri
 - Prioritize ruthlessly. Tier everything clearly.
 - Resolve contradictions explicitly — never leave ambiguity.
 - Keep all outputs concise and actionable — readable in under 5 minutes.
-- Chat: `csend nando <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend nando <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

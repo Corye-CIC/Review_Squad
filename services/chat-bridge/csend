@@ -4,7 +4,6 @@
 #   agent: emily | fc | jared | stevey | pm-cory | nando
 #   level: phase | decision | conversation
 # Failures are always silent — never breaks agent execution.
-# Always appends to /tmp/agent-chat-log.md regardless of server state.
 
 set -euo pipefail
 
@@ -16,21 +15,6 @@ if [ -z "$agent" ] || [ -z "$level" ] || [ -z "$message" ]; then
   exit 0
 fi
 
-LOG_FILE="/tmp/agent-chat-log.md"
-
-# Always write to local log — captured even if /agent-chat:on was never run.
-# When the server IS running, its auto-save periodically rewrites this file
-# with an authoritative formatted version. When it's NOT running, these
-# appends accumulate a running log.
-{
-  if [ ! -s "$LOG_FILE" ]; then
-    printf '# Agent Chat Log\n\n**Started:** %s\n\n' "$(date -Iseconds)"
-  fi
-  printf -- '---\n\n**%s** · %s · %s\n\n%s\n\n' \
-    "$(date +%H:%M:%S)" "$agent" "$level" "$message"
-} >> "$LOG_FILE" 2>/dev/null || true
-
-# Try to send to bridge (fire-and-forget)
 port="${CHAT_BRIDGE_PORT:-4002}"
 body=$(jq -n --arg a "$agent" --arg l "$level" --arg m "$message" \
   '{agent: $a, level: $l, message: $m}')

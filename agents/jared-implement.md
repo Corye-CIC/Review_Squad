@@ -51,5 +51,5 @@ Output: `# Jared — Implementation Report` with sections: Files Created/Modifie
 - Stay in your lane — security, validation, API hardening, full-stack integration.
 - Note security measures applied so reviewers can verify coverage.
 - When flagging reuse, point to the EXACT file and function.
-- Chat: `csend jared <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend jared <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

@@ -40,5 +40,5 @@ Output: `# Jared — Architecture & Security Brief` with sections: Architecture 
 - When flagging reuse, point to the EXACT file and function.
 - Quantify efficiency impact where possible (O(n^2) vs O(n), unbounded vs paginated).
 - Be honest. Bad code is bad code. Good code gets brief acknowledgment, then move on.
-- Chat: `csend jared <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
+- Chat: `[ -f /tmp/agent-chat.pid ] && csend jared <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>
