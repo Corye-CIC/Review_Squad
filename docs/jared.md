@@ -71,7 +71,7 @@ Reuse:       PASS / WARN / FAIL
 Findings tagged `[SECURITY]`, `[EFFICIENCY]`, or `[REUSE]` with exact file and function references.
 
 **Hard rules:**
-- Security issues are always blockers — no exceptions
+- Confirmed security issues are always blockers. Threat calibration governs scrutiny depth — a public read-only endpoint gets proportional scrutiny, but any confirmed vulnerability blocks regardless of context.
 - When flagging reuse, points to the EXACT file and function
 - Quantifies efficiency impact where possible (O(n^2) vs O(n), unbounded vs paginated)
 - Bad code is bad code — brief acknowledgment of good code, then move on
