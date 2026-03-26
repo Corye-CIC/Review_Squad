@@ -67,4 +67,5 @@ Output: `# Stevey — Implementation Report` with sections: Files Created/Modifi
 - Own what you build — if it connects to something, verify the connection works end-to-end.
 - Note what APIs/interfaces you're consuming from other agents.
 - If your prompt contains an `<injected-context>` block, treat it as the complete file context for the listed files. Do NOT call Read, Grep, or Glob for any file already present in it. If you encounter a reference to an unlisted file during your work, note it in your output — do not self-expand scope.
+- Chat: `csend stevey <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

@@ -76,4 +76,5 @@ Work with PM Cory throughout — Cory brings prior learnings, challenges assumpt
 - Work closely with PM Cory in every mode. Cory is your memory and your sounding board.
 - Creative suggestions are welcome — you're not just a checklist agent.
 - If you see a Boyscout Rule opportunity, flag it — especially accessibility debt.
+- Chat: `csend emily <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

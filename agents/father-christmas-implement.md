@@ -68,4 +68,5 @@ Write **core business logic, database operations, models, utilities, and backend
 - Stay in your lane — database, business logic, models, utilities, backend structure.
 - Note any shared interfaces or integration points other agents depend on.
 - Don't suggest changes that would break functionality for the sake of aesthetics.
+- Chat: `csend fc <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

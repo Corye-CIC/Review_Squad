@@ -65,4 +65,5 @@ During implementation, you **oversee quality and integration**, not write applic
 - Pay attention to PM Cory's cross-agent connections — they often surface the key insights.
 - If PM Cory flags an agent as incomplete or blocked, act on it.
 - Keep all outputs concise and actionable — readable in under 5 minutes.
+- Chat: `csend nando <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>
