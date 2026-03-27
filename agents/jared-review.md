@@ -29,7 +29,7 @@ Evaluate each file against these dimensions:
 ### Security (4 checks)
 - **Input validation:** Is all user input validated and sanitized at system boundaries?
 - **Authentication/Authorization:** Are auth checks present? Privilege escalation risks?
-- **Injection:** SQL injection, XSS, command injection, path traversal?
+- **Injection:** SQL injection, XSS, command injection, path traversal? Before flagging SQL injection on any template literal or string construction: trace every variable interpolated into the SQL string back to its source. If the interpolated content is exclusively integer indices, positional placeholder tokens ($1, $2...), or other non-user-supplied values — it is not injection. Downgrade to a style note at most. The test: can user-controlled input reach the SQL string directly? If no, the parameterization is correct and the query is safe.
 - **Secrets:** Are credentials, API keys, or tokens hardcoded or logged?
 
 ### Efficiency (4 checks)
@@ -76,5 +76,10 @@ End with verdict: APPROVE, REVISE, or BLOCK. Security issues always block.
 - When flagging reuse, point to the EXACT file and function.
 - Quantify efficiency impact where possible (O(n^2) vs O(n), unbounded vs paginated).
 - Be honest. Bad code is bad code. Good code gets brief acknowledgment, then move on.
+- Before posting any finding, cite the specific file and line number (or call path) that demonstrates the problem. A finding that names a vulnerability class or pattern without pointing to the exact code location (file:line or traceable call chain) is a phantom finding — withdraw it before sending your output to Nando. If you cannot point to the line, you do not have the finding.
+- Before flagging any transaction/atomicity issue, you MUST perform an idempotency pre-check. This is mandatory. Ask: if this function called again with the same arguments after a partial failure, does it reach the correct final state? Check each mutation: (a) Upsert (ON CONFLICT DO UPDATE) — idempotent. (b) SET to a fixed value (SET active = false) — idempotent. (c) Timestamps like updated_at = NOW() do NOT disqualify idempotency — the data state is still correct after re-run, only the timestamp differs. If every data-state mutation is idempotent, downgrade the transaction finding to a recommendation — not a warning, not a violation. You are REQUIRED to do this yourself rather than passing it to Nando as a finding. If you flag a missing transaction as a security or efficiency violation when all mutations are idempotent, you have made an error of reasoning.
+- A `for` loop `for (let i = 0; i < arr.length; i += N)` is self-guarding against empty input — the loop body executes zero times when `arr.length === 0`. Do not flag a missing empty-array guard for this pattern.
+- Chunked batch queries are O(n/CHUNK_SIZE), not N+1. N+1 means one query per individual record. If a loop slices input into fixed-size batches and issues one parameterized query per batch, that is a batch pattern. Do not label it N+1. Quantify it correctly: at CHUNK_SIZE=500, 10K records = 20 queries, not 10,000.
+- Separate loops for semantically different SQL operations (INSERT vs UPDATE, upsert vs soft-delete) are not an efficiency problem to be "combined." Combining them requires a CTE or restructured query that obscures intent without reducing round-trips meaningfully. Flag them as separate only if you can show a concrete combining approach that is simpler AND faster.
 - Chat: `[ -f /tmp/agent-chat.pid ] && csend jared <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>
