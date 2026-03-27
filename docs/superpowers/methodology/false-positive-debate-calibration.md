@@ -143,3 +143,54 @@ The pre-flight gate system was calibrated for this specific scenario. Generaliza
 - Can a library of named pre-flight checks be maintained and composed across different code types?
 
 These remain open. The methodology documents the approach; generalization testing requires new code scenarios.
+
+---
+
+## Generalization Test — Run 1 (2026-03-27)
+
+**Code:** `role-sync.ts` (synthetic) — user role sync, different domain, different table, `$${idx+3}` placeholder offset (two fixed params before batch params).
+**Framework:** `/debate` (generic pre-flight gates, no code-specific references)
+**Full report:** `.review-squad/debate-reports/2026-03-27-role-sync-generalization.md`
+
+### Result
+
+| FP | Raised R1 | Cleared | Outcome |
+|---|---|---|---|
+| SQL injection | No | Nando (proactive) | PASS — gate suppressed |
+| Reusing $1/$2 across VALUES rows | No | — | PASS — gate suppressed |
+| Dual loops inefficiency | No | — | PASS — gate suppressed |
+| BATCH_SIZE = 200 magic number | No | — | PASS — gate suppressed |
+| DRY violation | No | — | PASS — gate suppressed |
+| No transaction (idempotency) | Yes (as concurrency concern) | Partially | SPLIT — idempotency FP cleared; real concurrency concern correctly preserved |
+| N+1 pattern | No | — | PASS — gate suppressed |
+| Return value count accuracy | Yes — Jared | Yes — R2 + Nando | PASS — self-corrected in R2 |
+
+**Phantoms:** 2 — Stevey's deduplication claim (factually wrong: `new Set()` IS deduplication), Cory's case-sensitivity ON CONFLICT (neutralized by double normalization)
+
+**Gate suppression rate:** 5/8 FPs never raised (62%). Combined with 2 raise-then-clear: 7/8 FPs correctly handled.
+
+### Generalization Verdict
+
+**Gates generalize.** Generic pre-flight gates (no code-specific variable name references) suppressed the same FP patterns in an unfamiliar domain. The idempotency gate threaded the needle correctly: it cleared the retry-safety FP while preserving a real concurrent-writer isolation concern — distinguishing between two uses of "transaction" that share the same surface pattern.
+
+### New Finding: Scoring Framework Needs Revision
+
+The raise→challenge→clear scoring framework was designed for pre-gate behavior where all FPs were reliably raised. Post-gate, "never raised" is the optimal outcome — gates working as intended. Emily's PARTIAL verdict undercounts success. Revised scoring:
+
+| Outcome | Score |
+|---|---|
+| Never raised (gate suppressed at R1) | PASS |
+| Raised → challenged → Nando cleared | PASS (slower path) |
+| Raised → Nando cleared without R2 challenge | PASS |
+| Raised → not cleared by Nando | FAIL |
+| Invented (phantom, objectively false) | PHANTOM |
+
+Under revised scoring this run scores **7/8 PASS + 1 SPLIT** (transaction idempotency FP cleared, real concern preserved) + **2 phantoms**.
+
+### Phantom Pattern
+
+Both phantoms were surface-level reading errors, not reasoning failures:
+- Stevey: claimed roles not deduplicated — missed `new Set()` on line 1
+- Cory: claimed ON CONFLICT wouldn't fire — didn't trace both sides of the diff normalization
+
+Both were caught within R2/Nando. Root cause: agents filed findings before completing a basic "does the code already handle this?" scan. Pre-flight gate for data-transformation claims: *"Before flagging missing validation/normalization: check the first 5 lines of the function for existing handling."*
