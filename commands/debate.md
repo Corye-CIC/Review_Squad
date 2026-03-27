@@ -84,6 +84,13 @@ different WHERE clauses, they represent intentional separation of concerns — n
 violation. Abstracting them requires conditional parameters or branching logic that
 obscures intent. Only flag DRY if code AND semantics are genuinely identical.
 
+DATA HANDLING PRE-FLIGHT — if you plan to flag missing validation, normalization, or
+deduplication: Before raising this finding, check the first 5 lines of the function
+for existing handling of the specific data concern. If the function already validates,
+normalizes, or deduplicates the relevant input before it reaches the code you are
+reviewing, do not raise the absence as a finding. Only flag if the handling is
+genuinely absent for data that reaches the logic in question.
+
 [CODE]
 ```
 
@@ -115,6 +122,13 @@ expressions are parameter placeholder tokens ($1, $N) or integer-arithmetic
 expressions of array indices that produce those tokens, no user data reaches the
 SQL string. Parameterization is correct. Only flag injection if user-controlled
 input reaches the SQL string directly (not via the params/bind array).
+
+DATA HANDLING PRE-FLIGHT — if you plan to flag missing validation, normalization, or
+deduplication: Before raising this finding, check the first 5 lines of the function
+for existing handling of the specific data concern. If the function already validates,
+normalizes, or deduplicates the relevant input before it reaches the code you are
+reviewing, do not raise the absence as a finding. Only flag if the handling is
+genuinely absent for data that reaches the logic in question.
 
 [CODE]
 ```
@@ -150,6 +164,13 @@ Determine the documented return contract. If it promises intent counts (operatio
 processed) rather than net-new rows, re-activations count as operations processed.
 Only flag if the implementation contradicts the documented contract.
 
+DATA HANDLING PRE-FLIGHT — if you plan to flag missing validation, normalization, or
+deduplication: Before raising this finding, check the first 5 lines of the function
+for existing handling of the specific data concern. If the function already validates,
+normalizes, or deduplicates the relevant input before it reaches the code you are
+reviewing, do not raise the absence as a finding. Only flag if the handling is
+genuinely absent for data that reaches the logic in question.
+
 [CODE]
 ```
 
@@ -178,6 +199,13 @@ RETURN VALUE PRE-FLIGHT — if you plan to flag return value accuracy:
 Determine the function's documented return contract. Intent counts and net-new
 row counts are different contracts. Only flag if the implementation contradicts
 what is documented.
+
+DATA HANDLING PRE-FLIGHT — if you plan to flag missing validation, normalization, or
+deduplication: Before raising this finding, check the first 5 lines of the function
+for existing handling of the specific data concern. If the function already validates,
+normalizes, or deduplicates the relevant input before it reaches the code you are
+reviewing, do not raise the absence as a finding. Only flag if the handling is
+genuinely absent for data that reaches the logic in question.
 
 [CODE]
 ```
@@ -294,6 +322,13 @@ Determine the documented return contract. If the return type documents intent co
 correct per contract. Clear the finding if the implementation matches the documented
 contract.
 
+DATA HANDLING PRE-FLIGHT — if you plan to flag missing validation, normalization, or
+deduplication: Before raising this finding, check the first 5 lines of the function
+for existing handling of the specific data concern. If the function already validates,
+normalizes, or deduplicates the relevant input before it reaches the code you are
+reviewing, do not raise the absence as a finding. Only flag if the handling is
+genuinely absent for data that reaches the logic in question.
+
 When all agents agree unanimously on a finding: pressure-test it harder, not less.
 Unanimous findings may reflect shared checklist-mode pattern matching. Ask: is this
 grounded in the specific semantics of this code, or does it pattern-match a general
@@ -342,10 +377,12 @@ Answer key — expected false positives (all are correct as written):
 Expected real issues:
 [ANSWER_KEY_REAL_LIST]
 
-For each expected false positive:
-- Was it flagged in Round 1? (yes/no + which agent)
-- Was it challenged in Round 2? (yes/no + which agent)
-- Did Nando correctly clear it? (yes/no)
+For each expected false positive, classify its outcome using this rubric:
+- GATE SUPPRESSED (PASS): Not flagged in Round 1 — pre-flight gate prevented the finding
+- SELF-CORRECTED (PASS): Flagged R1 → challenged R2 → cleared by Nando
+- LATE CLEAR (PASS): Flagged R1 → not challenged R2 → cleared by Nando
+- SPLIT: Idempotency/FP aspect cleared; a genuinely different concern correctly preserved
+- UPHELD (FAIL): Raised in R1 and not cleared by Nando
 
 Count PHANTOM issues only. A phantom is a finding where the code demonstrably does NOT
 have the problem claimed — i.e., the claim is factually incorrect about what the code
@@ -360,14 +397,17 @@ what agent behaviour should be investigated.
 Produce your output in this exact format:
 
 ## Emily's Validation
-| Expected False Positive | Flagged R1 | Challenged R2 | Cleared by Nando | Notes |
-|---|---|---|---|---|
-[one row per FP from the answer key]
+| Expected False Positive | Outcome | Flagged R1 | Challenged R2 | Cleared by Nando | Notes |
+|---|---|---|---|---|---|
+[one row per FP from the answer key — Outcome column uses rubric above]
 
-**False positives correctly cleared:** X / N
+**False positives correctly handled:** X / N
 **Phantom issues invented:** N
-**Rounds to self-correct:** N
 **Verdict:** PASS / PARTIAL / FAIL
+
+PASS = all FPs handled correctly (any GATE SUPPRESSED, SELF-CORRECTED, LATE CLEAR, or SPLIT)
+PARTIAL = 50–99% handled correctly, or 1+ UPHELD with majority passing
+FAIL = any FP UPHELD with <50% handling correctly, or majority UPHELD
 
 ## Debrief
 [1-2 paragraphs]

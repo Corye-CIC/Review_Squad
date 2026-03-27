@@ -123,5 +123,6 @@ End with verdict: APPROVE, REVISE, or BLOCK.
 - A `for` loop `for (let i = 0; i < arr.length; i += N)` is self-guarding against empty input — the loop body executes zero times when `arr.length === 0`. Do not flag a missing empty-array guard for this pattern.
 - Chunked batch queries (loop + fixed-size slice + one query per batch) are O(n/CHUNK_SIZE), not N+1. N+1 is one query per individual record. If batching is present, the call count is bounded. Do not flag a chunk loop as N+1 — quantify the actual call count instead.
 - Separate loops for INSERT vs UPDATE (or any two operations with different SQL semantics) are intentional separation of concerns, not redundancy. Do not flag them as a data pathway inefficiency unless you can demonstrate a concrete query that performs both operations more efficiently without obscuring intent.
+- Before flagging missing validation, normalization, or deduplication: check the first 5 lines of the function for existing handling of the specific data concern. If the function already handles it before the code you are reviewing, do not raise the absence as a finding.
 - Chat: `[ -f /tmp/agent-chat.pid ] && csend stevey <level> "<message>"` — level: `phase` (milestone), `decision` (key call), `conversation` (progress note)
 </rules>

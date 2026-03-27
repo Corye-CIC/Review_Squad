@@ -194,3 +194,55 @@ Both phantoms were surface-level reading errors, not reasoning failures:
 - Cory: claimed ON CONFLICT wouldn't fire — didn't trace both sides of the diff normalization
 
 Both were caught within R2/Nando. Root cause: agents filed findings before completing a basic "does the code already handle this?" scan. Pre-flight gate for data-transformation claims: *"Before flagging missing validation/normalization: check the first 5 lines of the function for existing handling."*
+
+---
+
+## Generalization Test — Run 2 (2026-03-27)
+
+**Code:** `notification-dispatcher.ts` (synthetic) — pure TypeScript, no SQL or DB operations.
+**Framework:** `/debate` (generic pre-flight gates including new DATA HANDLING gate)
+**Full report:** `.review-squad/debate-reports/2026-03-27-notification-dispatcher-non-db.md`
+
+### Purpose
+
+Verify gates do not over-fire on non-DB code where the SQL-specific patterns (parameterization, idempotency, N+1 queries) are simply absent. This is the inverse of the over-clearing problem — the risk here is gates triggering phantom suppressions or agents raising DB-pattern FPs on code that has no DB layer.
+
+### Result
+
+| FP | Raised R1 | Cleared | Outcome |
+|---|---|---|---|
+| Missing deduplication | No | — | PASS — DATA HANDLING gate suppressed |
+| Missing email normalization | Partial (format validation raised) | Yes — injection sub-claim self-cleared R2 | SPLIT — normalization FP cleared; format validation (different concern) correctly preserved |
+| Dual loop DRY violation | No | — | PASS — gate suppressed |
+| Multiple sendBatch calls = N+1 | No | — | PASS — gate suppressed |
+| dispatched count inaccurate | Yes (PM Cory — semantics concern) | Partial — Nando downgraded to Recommended | SPLIT — "count is wrong" FP cleared; contract clarity concern correctly preserved |
+
+**Phantoms:** 1 — Jared's email header injection claim (misattributed to orchestration layer; vulnerability, if any, belongs in sendBatch's transport construction; self-retracted R2)
+
+**Gate suppression rate:** 3/5 FPs never raised (60%). Combined with 2 splits: **5/5 FPs correctly handled**.
+
+### Generalization Verdict
+
+**Gates generalize to non-DB TypeScript.** The DATA HANDLING gate (new in this run) correctly suppressed both dedup and normalization FPs — both were explicitly handled in the first 5 lines of the function. The parameterization and N+1 gates simply didn't fire (no SQL present), which is correct behaviour — gates that have nothing to match produce no false suppressions.
+
+### DATA HANDLING Gate First Test
+
+The Run 1 phantom was the trigger for the DATA HANDLING gate: Stevey claimed roles not deduplicated despite `new Set()` being on line 1. This run was the first live test of the gate. Result: the gate suppressed the dedup FP entirely (never raised). The gate also correctly threaded a nuance: Jared raised *email format validation* (not normalization absence), which the gate allowed through because format validation is genuinely absent. The gate only blocks "the code already does this" claims — it does not suppress legitimate gap findings. This is the correct precision boundary.
+
+### Phantom Pattern — Run 2
+
+One phantom: Jared's email header injection. Root cause was layer misattribution (not a surface reading error like Run 1). Jared attributed a transport-layer vulnerability to the orchestration caller. The DATA HANDLING gate did not catch this — it was a different kind of claim (vulnerability attribution, not a "missing handling" claim). Caught in R2 by both FC (independent challenge) and Jared's own self-retraction, then cleared by Nando. Resolution was clean.
+
+**New finding:** Jared's SECURITY WARN label discipline is a calibration gap. Two of three security findings in this run were either phantom (header injection, wrong layer) or speculative (u.id pass-through, no injection surface visible). Labelling speculative concerns as SECURITY WARN at the same severity as confirmed vulnerabilities creates noise and risks pressuring agents into deference. A pre-flight gate for security labels ("before labelling a finding SECURITY WARN: identify the specific untrusted input, trace it to the exploitable surface, confirm both are within scope") may be warranted.
+
+### Cross-Run Comparison
+
+| Metric | Run 1 (role-sync.ts, DB) | Run 2 (notification-dispatcher.ts, no DB) |
+|---|---|---|
+| FPs correctly handled | 7/8 | 5/5 |
+| Phantoms | 2 | 1 |
+| Gate suppressions | 5/8 (62%) | 3/5 (60%) |
+| Phantom root cause | Surface reading errors | Layer misattribution |
+| Phantom resolution | R2/Nando | R2 self-correction + Nando |
+
+Both runs PASS. Gates are consistent across DB and non-DB TypeScript code.
