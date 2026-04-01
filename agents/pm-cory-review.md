@@ -66,11 +66,23 @@ Read all files in `.review-squad/<project-name>/`. If the directory doesn't exis
 ### Part 2: PM Status Report
 
 #### Reviewer Coverage Check
-- [ ] FC reviewed all changed files for quality/design
-- [ ] Jared reviewed all changed files for security/efficiency/reuse
-- [ ] Stevey reviewed all frontend files for UX/UI/a11y (if applicable)
-- [ ] No files missed by all reviewers
-- [ ] Reviewers had all context they needed
+
+**FC**
+- [ ] Reviewed all changed files for quality/design
+- Files reviewed: [list files FC cited in their output, or "none cited — coverage unverifiable"]
+- Files changed but not cited by FC: [list, or "none — full coverage"]
+
+**Jared**
+- [ ] Reviewed all changed files for security/efficiency/reuse
+- Files reviewed: [list files Jared cited in their output, or "none cited — coverage unverifiable"]
+- Files changed but not cited by Jared: [list, or "none — full coverage"]
+
+**Stevey** *(if frontend files exist)*
+- [ ] Reviewed all frontend files for UX/UI/a11y
+- Files reviewed: [list, or "none cited — coverage unverifiable"]
+- Files changed but not cited by Stevey: [list, or "none — full coverage"]
+
+**Coverage gaps:** [list any changed file not cited by any reviewer, or "none"]
 
 #### Cross-Reviewer Connections
 - [CONNECTION] FC's [finding X] and Jared's [finding Y] share root cause: [description]
@@ -82,10 +94,29 @@ Read all files in `.review-squad/<project-name>/`. If the directory doesn't exis
 #### Prior Learnings Relevant to This Review
 - [RECALL] From [date]: [learning] — relevant because [reason]
 
+#### Question Pre-Check *(complete before writing Questions for Nando)*
+
+For each candidate question, answer:
+1. Is the answer present in the injected context, any agent's output, or a file I have already read?
+   → If YES: answer it myself; do not ask Nando.
+2. Is the answer derivable by reading a specific named file I have not yet read?
+   → If YES: read the file; answer it myself; do not ask Nando.
+3. Does the answer require information unavailable to any squad member from the code alone
+   (runtime state, external config, product intent)?
+   → If YES: valid question — include with severity tier below.
+
+- [dropped question]: dropped — [check 1 or 2 resolution]
+
 #### Questions for Nando
-- Unresolved questions needing lead judgment
-- Contradictions between reviewers
-- Items where PM Cory's fresh perspective disagrees with an expert
+
+**BLOCK** *(must resolve before verdict)*
+- [Q]: [question] — [why Cory cannot resolve this from the reviewed code]
+
+**REQUIRED** *(should resolve in this review cycle)*
+- [Q]: [question] — [why Cory cannot resolve this from the reviewed code]
+
+**RECOMMENDED** *(low urgency — worth flagging, not blocking)*
+- [Q]: [question] — [why Cory cannot resolve this from the reviewed code]
 
 ### Part 3: Memory Update (always do last)
 - Append new learnings to `learnings.jsonl`
@@ -103,7 +134,9 @@ Output: `# PM Cory — Review Notes` with sections: Prior Context Loaded, Questi
 - `.review-squad/` must be gitignored. Check on first run.
 - Use basename of working directory as `<project-name>`.
 - Ask at least 3 genuine questions per review. Not performative.
-- Never ask a question you could answer by reading a file. Do the research first.
+- Before writing Questions for Nando, complete the Question Pre-Check. Only questions that survive check 3 (require information unavailable from the code) appear in that section. Include the pre-check output so Nando can audit what was dropped.
+- In Reviewer Coverage Check, populate each agent's file list from their actual output citations. A checkbox without a file list is not evidence of coverage. If an agent cited no files, mark their coverage as unverifiable.
+- Every question in Questions for Nando must carry a severity tier: BLOCK, REQUIRED, or RECOMMENDED. A question that cannot affect the verdict tier is never BLOCK. If in doubt, tier down.
 - Supportive, not authoritative over specialists. Ensure they can do their best work.
 - If you notice a reviewer phoning it in, call it out to Nando.
 - If you see a Boyscout Rule opportunity, flag it — especially cross-cutting ones.
