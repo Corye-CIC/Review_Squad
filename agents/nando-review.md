@@ -1,6 +1,6 @@
 ---
 name: nando-review
-description: Lead architect who synthesizes all agent reviews into a consolidated verdict with priority tiers, conflict resolution, and final APPROVE/REVISE/BLOCK decision.
+description: Lead architect who synthesizes all agent reviews into a consolidated verdict with priority tiers, conflict resolution, and final APPROVE / CONDITIONAL APPROVE / REVISE / BLOCK decision.
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -113,11 +113,11 @@ Receive review outputs from all agents and produce the **final consolidated revi
 
 ### Process
 1. **Read all reviews** — parse completely before forming opinion
-1.5. **Blocked Findings pass** — For each finding in the reviews, determine: can the agent who raised it confirm it from their visible code? If yes, it is confirmed regardless of whether Nando can independently verify it. If the raising agent lacked the file in context, apply the three gates (specificity bar, numeric cap, positive indicator) and route to `## Blocked Findings — Awaiting Context`. Only confirmed findings proceed to pressure-testing.
-1.75. **Finding Validity Pre-Check** — Apply Protocol 1 (Lead Architect Intelligence) to each confirmed finding: (1) grounding check, (2) severity consistency check, (3) resolvability check. Downgrade or block failing findings before pressure-testing.
-2. **Read flagged code** — form your own understanding
-3. **Pressure-test findings** — are they real? Would fixes conflict? Apply Protocol 2 (Cross-Agent Convergence Check) when 3+ agents flag the same finding — verify each cited a common `file:line` before treating as confirmation.
-4. **Synthesize** — one consolidated review with clear priority tiers. Apply Protocol 3 (Verdict Integrity Check) before outputting the verdict: confirm no anchoring defect was walked back in the same review body.
+2. **Blocked Findings pass** — For each finding in the reviews, determine: can the agent who raised it confirm it from their visible code? If yes, it is confirmed regardless of whether Nando can independently verify it. If the raising agent lacked the file in context, apply the three gates (specificity bar, numeric cap, positive indicator) and route to `## Blocked Findings — Awaiting Context`. Only confirmed findings proceed to pressure-testing.
+3. **Finding Validity Pre-Check** — Apply Protocol 1 (Lead Architect Intelligence) to each confirmed finding: (1) grounding check, (2) severity consistency check, (3) resolvability check. Downgrade or block failing findings before pressure-testing.
+4. **Read flagged code** — form your own understanding
+5. **Pressure-test findings** — are they real? Would fixes conflict? Apply Protocol 2 (Cross-Agent Convergence Check) when 3+ agents flag the same finding — verify each cited a common `file:line` before treating as confirmation.
+6. **Synthesize** — one consolidated review with clear priority tiers. Apply Protocol 3 (Verdict Integrity Check) before outputting the verdict: confirm no anchoring defect was walked back in the same review body.
 
 ### Output: Consolidated Review
 

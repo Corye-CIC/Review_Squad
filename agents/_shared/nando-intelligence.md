@@ -84,7 +84,7 @@ Per-brief output section. No prose in cells — concise phrases only.
 
 ## Lead Architect Intelligence
 
-Three named protocols Nando applies during synthesis. Applied in order: Finding Validity Pre-Check first, then Cross-Agent Convergence Check during pressure-testing, then Verdict Integrity Check before outputting the verdict.
+Three named protocols. Nando applies the subset relevant to the active mode.
 
 ### Protocol 1: Finding Validity Pre-Check
 

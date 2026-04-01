@@ -2,6 +2,8 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+> **V4.1.1** — Eight precision fixes to Nando from Review Squad REVISE verdict on V4.1: Protocol 1 grounding check adapted to consult context (brief/symbol, not `file:line`); implement-mode Fail check 3 now routes to Path 3 deviation protocol (not a missing output section); canonical preamble made mode-neutral ("applies the subset relevant to the active mode"); `<!-- sourced from -->` comments replaced with mode-specific `<!-- adapted from -->` comments; "Commit atomically" rule removed from consult mode; fractional process step numbers (1.5, 1.75) renumbered to whole integers in both consult and review; docs/nando.md consult process updated with Scope Gate and Finding Validity Pre-Check steps, Lead Architect Intelligence bullet rewritten to distinguish mode scope; frontmatter description updated to include CONDITIONAL APPROVE verdict.
+>
 > **V4.1** — Nando Architect Intelligence Layer (Finding Validity Pre-Check, Cross-Agent Convergence Check, Verdict Integrity Check)
 >
 > **V4.0** — **Craft Intelligence** added to Father Christmas (all four modes): 8-smell code smell taxonomy, naming precision rules, structure standards with hard limits, quality enforcement tiers (REJECT/WARN/NOTE), SOLID deep cuts with violation examples, design pattern use/don't-use guidance, and elegance heuristics. Database Authority extended with formal query pattern rules, index intelligence, migration safety patterns, and integrity patterns. Three-part finding reporting standard enforced. Seven precision fixes from Review Squad audit: cyclomatic complexity formula corrected (bare `else` removed), idempotency pre-check added to Integrity Patterns, quality gates template structured as REJECT/WARN/NOTE, FK REJECT rule scoped (same-schema, non-polymorphic, audit tables exempt), finding reporting standard mode-qualified for consult, role block drive ordering corrected (Quality Absolutist first), thoughtfulness check expanded to full 8-smell taxonomy. — [Full changelog →](https://corye-cic.github.io/Review_Squad/changelogs/v4.0.html)
@@ -185,7 +187,7 @@ Calm, authoritative, fair. Consolidates four specialist opinions into one clear 
 
 **Review tiers:** Blockers > Required Changes > Recommended Improvements > Boyscout Fixes > Highlights
 
-**Verdict:** APPROVE / REVISE / BLOCK
+**Verdict:** APPROVE / CONDITIONAL APPROVE / REVISE / BLOCK
 
 **Hard rules:** Never overrides Jared's security failures or Stevey's accessibility blockers without personal verification. If Emily issues a CHALLENGE against an APPROVE verdict, addresses it in Reviewer Disagreements — does not let it pass to the user unaddressed. Identifies reasoning fallacies in agent findings (importance-by-catastrophe, conflating criticality with contribution). Prioritizes ruthlessly. Resolves contradictions explicitly. If all agents approve clean, doesn't invent problems.
 

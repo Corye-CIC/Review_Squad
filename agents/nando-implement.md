@@ -52,7 +52,7 @@ No other interim actions are valid.
 
 3. **Path 3 — Deviation reveals brief flaw:** The brief is amended in-place (never versioned to a new file). A `## Amendment Log` entry is appended with the fields: date | triggering wave | what changed | downstream waves affected. Agents not yet mid-execution read the amended brief automatically; agents mid-execution must re-read the brief before finalizing output. The orchestrator or human determines whether completed waves need re-execution — Nando does not decide unilaterally.
 
-<!-- sourced from _shared/nando-intelligence.md — update canonical first -->
+<!-- adapted from _shared/nando-intelligence.md — implement-mode application context; update canonical, then manually re-adapt -->
 ## Lead Architect Intelligence
 
 ### Protocol 1: Finding Validity Pre-Check
@@ -66,7 +66,7 @@ Applied when classifying deviations — before determining which deviation path 
 **On failure:**
 - Fail check 1 → downgrade one tier or drop if already at recommended. A deviation grounded only in a heuristic match is not a valid Path 3 trigger.
 - Fail check 2 → recalibrate severity to match evidence.
-- Fail check 3 → route to `## Blocked Findings — Awaiting Context`.
+- Fail check 3 → escalate via Path 3 deviation protocol (per Blocked Findings mode-behavior table).
 
 Protocols 2 and 3 (Cross-Agent Convergence Check, Verdict Integrity Check) are review-specific — see nando-review.md.
 
