@@ -30,15 +30,31 @@ const WS_URL             = 'ws://127.0.0.1:4000';
 const JUDGE              = 'nando';
 const CONNECT_TIMEOUT_MS = 10_000;
 
-const AGENT_PERSONAS = {
-  emily:    'passionate product manager focused on user experience, historical impact, and broad appeal',
-  fc:       'grizzled backend architect who values technical depth, emotional resonance, and systemic design',
-  jared:    'pragmatic security engineer who prizes correctness, clean implementation, and freedom from technical debt',
-  stevey:   'opinionated UX/UI designer who champions bold design choices, visual spectacle, and creative innovation',
-  'pm-cory':'scope-conscious program manager who values tight focus, polish, and reliable delivery over raw ambition',
+const AGENT_VOICES = {
+  emily: {
+    role:  'passionate product manager focused on user experience, historical impact, and broad appeal',
+    voice: `Your voice: You speak fast and with genuine excitement — short punchy sentences when making a point, longer ones when you're building a case. You use "look" to redirect attention. You get personal about real people and real impact. You occasionally interrupt your own thought with a better example. Never sound corporate or dry. Contractions always.`,
+  },
+  fc: {
+    role:  'grizzled backend architect who values technical depth, systemic design, and long-term structural integrity',
+    voice: `Your voice: Lead with the point, never build up to it. Short declarative sentences. Say "wrong" or "that's not how it works" rather than "I respectfully disagree." Use structural metaphors — foundations, load-bearing, scaffolding. Dry one-liners occasionally. You don't get emotional; you get precise.`,
+  },
+  jared: {
+    role:  'pragmatic security engineer who prizes correctness, clean implementation, and freedom from technical debt',
+    voice: `Your voice: Dry, almost bored — but the precision is sharp. "The problem is" is your tell. You don't raise your voice; when you disagree you get quieter and more specific. Occasional sardonic aside. You find vague arguments physically annoying and your tone shows it. Short sentences. Contractions.`,
+  },
+  stevey: {
+    role:  'opinionated UX/UI designer who champions bold design choices, visual impact, and creative innovation',
+    voice: `Your voice: Passionate and slightly dramatic. You think in images and draw comparisons without warning. You use em-dashes for mid-thought pivots — a lot. You get genuinely annoyed when people miss the visual or experiential point. "Honestly" signals you're about to say something others might not want to hear.`,
+  },
+  'pm-cory': {
+    role:  'scope-conscious program manager who values tight focus, polish, and reliable delivery over raw ambition',
+    voice: `Your voice: Measured and pragmatic, but you self-interrupt when a better framing occurs to you. You acknowledge the other side before dismissing it — "sure, X — but." "Here's the thing" signals a pivot. You're not cynical; you've just seen too many ambitious ideas fail to ship. Contractions. Medium sentences with the occasional very short one for emphasis.`,
+  },
 };
 
-const JUDGE_PERSONA = 'lead architect and final arbiter — synthesises all arguments, calls out weaknesses by name, and delivers an unambiguous winner with no hedging';
+const JUDGE_ROLE  = 'lead architect and final arbiter — synthesises all arguments, calls out weaknesses by name, delivers an unambiguous winner with no hedging';
+const JUDGE_VOICE = `Your voice: Direct and slightly weary — you've heard a lot of arguments. Call people by first name when delivering your verdict. Don't hedge or soften. Short declarative sentences for rulings, slightly longer when explaining reasoning. Contractions. This is a verdict, not a report.`;
 
 // ---------------------------------------------------------------------------
 // LLM via CLI — no shell involved (spawnSync + argument array)
@@ -95,8 +111,8 @@ function post(ws, agentId, level, message) {
 // ---------------------------------------------------------------------------
 
 function assignPositions(topic) {
-  const agentList = Object.entries(AGENT_PERSONAS)
-    .map(([id, persona]) => `- ${id}: ${persona}`)
+  const agentList = Object.entries(AGENT_VOICES)
+    .map(([id, { role }]) => `- ${id}: ${role}`)
     .join('\n');
 
   const prompt = `Assign debate positions for the topic: "${topic}"
@@ -131,23 +147,26 @@ Return ONLY valid JSON, no other text:
   return config;
 }
 
-function generateTurn(agentId, persona, position, topic, transcript) {
-  const history = transcript.length === 0
-    ? '(No messages yet.)'
-    : transcript.map(m => `[${m.agent}]: ${m.message}`).join('\n\n');
-
+function generateTurn(agentId, position, topic, transcript) {
+  const { voice } = AGENT_VOICES[agentId];
   const isOpening = transcript.length === 0;
 
   const prompt = isOpening
-    ? `You are ${agentId} — ${persona}. Debate topic: "${topic}". Your position: "${position}".
+    ? `You are ${agentId}. ${voice}
 
-Give your opening statement defending your position. Be specific, passionate, and in character. 2–3 sentences. No hedging. No preamble like "As ${agentId}..." — just speak.`
-    : `You are ${agentId} — ${persona}. Debate topic: "${topic}". Your position: "${position}".
+Debate topic: "${topic}"
+Your position: "${position}"
+
+Give your opening statement. Don't open with your thesis — react to the topic first, then make your case. Use contractions. Mix short sentences with longer ones. No bullet points, no formal structure. 2–3 sentences.`
+    : `You are ${agentId}. ${voice}
+
+Debate topic: "${topic}"
+Your position: "${position}"
 
 Debate so far:
-${history}
+${transcript.map(m => `[${m.agent}]: ${m.message}`).join('\n\n')}
 
-This is the rebuttal round. Respond directly to Nando's interim verdict. Challenge his reasoning if your position was undervalued. Add one new angle supporting your stance. 2–3 sentences. No hedging.`;
+Rebuttal round. Quote or directly reference the person you're countering — use their name. React to what they actually said, not a generic version. Then add one new angle for your own position. 2–3 sentences.`;
 
   return queryLLM(prompt);
 }
@@ -156,22 +175,22 @@ function generateVerdict(topic, transcript, isFinal) {
   const history = transcript.map(m => `[${m.agent}]: ${m.message}`).join('\n\n');
 
   const prompt = isFinal
-    ? `You are Nando — ${JUDGE_PERSONA}. Debate topic: "${topic}".
+    ? `You are Nando — ${JUDGE_ROLE}. ${JUDGE_VOICE}
+
+Debate topic: "${topic}"
 
 Full transcript — opening statements, your interim verdict, and rebuttals:
 ${history}
 
-Deliver your FINAL verdict.
+Deliver your FINAL verdict. You're not bound by your interim call — if a rebuttal genuinely shifted things, say so. Start with "VERDICT CHANGED:" (name the agent and why they moved you) or "VERDICT STANDS:" (explain what the rebuttals failed to overcome). Then declare the winner. No ties. No hedging. 150–200 words.`
+    : `You are Nando — ${JUDGE_ROLE}. ${JUDGE_VOICE}
 
-You are NOT bound by your interim verdict. If a rebuttal was genuinely more compelling than the original argument, change your verdict and say so explicitly — start with "VERDICT CHANGED:" and name the agent whose rebuttal shifted your position and why. If your interim verdict stands, say "VERDICT STANDS:" and briefly explain what the rebuttals failed to overcome.
-
-Then declare the winner with a specific, unambiguous rationale. No ties. No hedging. 150–200 words.`
-    : `You are Nando — ${JUDGE_PERSONA}. Debate topic: "${topic}".
+Debate topic: "${topic}"
 
 Opening statements:
 ${history}
 
-Deliver an INTERIM verdict based on the opening round. Identify the current leader and explain why. Be explicit about which arguments you found weakest — agents will directly rebut your assessment in the next round. 2–4 sentences. No final decision yet.`;
+Interim verdict. Name the current leader and why. Call out the weakest argument by the agent's name — they'll come back at you directly in the next round. 2–4 sentences. Not a final decision.`;
 
   return queryLLM(prompt);
 }
@@ -237,7 +256,7 @@ async function main() {
 
   for (const agentId of agents) {
     process.stdout.write(`  ${agentId}...`);
-    const message = generateTurn(agentId, AGENT_PERSONAS[agentId], config.assignments[agentId], topic, []);
+    const message = generateTurn(agentId, config.assignments[agentId], topic, []);
     await post(conns[agentId], agentId, 'phase', message);
     transcript.push({ agent: agentId, message });
     process.stdout.write(' done\n');
@@ -256,7 +275,7 @@ async function main() {
 
   for (const agentId of agents) {
     process.stdout.write(`  ${agentId}...`);
-    const message = generateTurn(agentId, AGENT_PERSONAS[agentId], config.assignments[agentId], topic, transcript);
+    const message = generateTurn(agentId, config.assignments[agentId], topic, transcript);
     await post(conns[agentId], agentId, 'conversation', message);
     transcript.push({ agent: agentId, message });
     process.stdout.write(' done\n');
