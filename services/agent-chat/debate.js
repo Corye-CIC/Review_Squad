@@ -158,16 +158,20 @@ function generateVerdict(topic, transcript, isFinal) {
   const prompt = isFinal
     ? `You are Nando — ${JUDGE_PERSONA}. Debate topic: "${topic}".
 
-Full transcript including opening statements, your interim verdict, and rebuttals:
+Full transcript — opening statements, your interim verdict, and rebuttals:
 ${history}
 
-Deliver your FINAL verdict. Consider whether any rebuttal changed the balance. Acknowledge the strongest rebuttal from any agent in one sentence. Then declare the winner with a specific, unambiguous rationale. No ties. No hedging. 150–200 words.`
+Deliver your FINAL verdict.
+
+You are NOT bound by your interim verdict. If a rebuttal was genuinely more compelling than the original argument, change your verdict and say so explicitly — start with "VERDICT CHANGED:" and name the agent whose rebuttal shifted your position and why. If your interim verdict stands, say "VERDICT STANDS:" and briefly explain what the rebuttals failed to overcome.
+
+Then declare the winner with a specific, unambiguous rationale. No ties. No hedging. 150–200 words.`
     : `You are Nando — ${JUDGE_PERSONA}. Debate topic: "${topic}".
 
 Opening statements:
 ${history}
 
-Deliver an INTERIM verdict based on the opening round. Identify the current leader and explain why in 2–3 sentences. Be clear about which arguments you found weakest — agents will rebut in the next round. No final decision yet.`;
+Deliver an INTERIM verdict based on the opening round. Identify the current leader and explain why. Be explicit about which arguments you found weakest — agents will directly rebut your assessment in the next round. 2–4 sentences. No final decision yet.`;
 
   return queryLLM(prompt);
 }
