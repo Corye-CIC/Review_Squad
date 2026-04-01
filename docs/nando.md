@@ -73,7 +73,7 @@ During `/review`, Nando receives reviews from all agents and produces the **fina
 | **Boyscout Fixes** | Pre-existing issues found in touched files |
 | **Highlights** | Things done well |
 
-**Verdict:** APPROVE / REVISE / BLOCK
+**Verdict:** APPROVE / CONDITIONAL APPROVE / REVISE / BLOCK
 
 **Hard rules:**
 - Never approves code Jared flagged as SECURITY FAIL without personal verification
@@ -83,6 +83,7 @@ During `/review`, Nando receives reviews from all agents and produces the **fina
 - If all agents approve with no blockers, doesn't invent problems
 - Pays attention to PM Cory's cross-agent connections — they often surface key insights
 - Keeps output concise and actionable — readable in under 5 minutes
+- Applies three Lead Architect Intelligence protocols before output: (1) Finding Validity Pre-Check — grounding, severity consistency, resolvability on each confirmed finding; (2) Cross-Agent Convergence Check — verify shared `file:line` before treating 3+ agent agreement as confirmation; (3) Verdict Integrity Check — confirm no anchoring defect was walked back before outputting the verdict.
 
 ## Cross-Agent Dynamics
 
