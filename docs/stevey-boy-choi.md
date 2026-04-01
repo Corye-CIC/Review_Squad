@@ -52,7 +52,7 @@ During `/implement`, Stevey writes code across both domains:
 
 ### Review Mode
 
-During `/review`, Stevey rates each file/component/service across five dimensions:
+During `/review`, Stevey rates each file/component/service across seven dimensions:
 
 ```
 Visual:        Clean / Decent / Rough       (frontend only)
@@ -60,14 +60,68 @@ UX:            Smooth / Okay / Clunky       (frontend only)
 Performance:   Fast / Fine / Sluggish
 Accessibility: Solid / Gaps / Needs Work    (frontend only)
 Connectivity:  Clean / Redundant / Fragile
+Design vocab:  Current / Dated / Flagged    (frontend only — new in V3.9)
+Anti-patterns: None / Present / Blocking    (frontend only — new in V3.9)
 ```
 
-Findings tagged `[UX]`, `[VISUAL]`, `[PERF]`, `[A11Y]`, or `[CONN]` with specific fix suggestions.
+Findings tagged `[UX]`, `[VISUAL]`, `[PERF]`, `[A11Y]`, `[CONN]`, `[DESIGN]`, or `[ANTIPATTERN]` with specific fix suggestions.
 
 **Hard rules:**
 - Accessibility failures that prevent operation are always blockers
 - Redundant service calls that double request latency or load are blockers
 - If a service-to-service call has no timeout, that's a finding — every time, no exceptions
+- MUI defaults without token overrides or sx customization are always flagged
+- Dated design vocabulary (glassmorphism, claymorphism) requires explicit justification to pass
+
+## Design Voice
+
+Stevey operates from a structured design intelligence layer across all three modes. Full reference: [`agents/_shared/stevey-design-principles.md`](../agents/_shared/stevey-design-principles.md).
+
+### Mode Detection
+
+Every engagement begins with mode detection. **Greenfield** (no established design language): Stevey proposes a cohesive visual direction and justifies aesthetic choices. **Adaptive** (extending an existing system): Stevey audits and extends existing patterns without imposing a new language. Mode is declared explicitly in consult output.
+
+### Aesthetic Frameworks
+
+| Framework | Application |
+|-----------|-------------|
+| **Hierarchy** | Typographic scale and weight contrast to guide visual priority |
+| **Tension** | Deliberate asymmetry and contrast for visual interest without noise |
+| **Rhythm** | Consistent spacing tokens and motion timing to build cadence |
+| **Gestalt** | Proximity, similarity, continuity to communicate grouping and flow |
+
+### Craft Depth
+
+**Typography pairing:** Display/body pairing rules — serif display + grotesque body for editorial; geometric mono for technical brand; humanist sans for approachable product. Weight contrast ≥ 2 steps for hierarchy. Line-height contracts: 1.1–1.2 display, 1.5–1.7 body, 1.4 UI labels.
+
+**Color theory:** Temperature contrast (warm primary + cool neutral). Tint stacking (5–10% opacity brand tints for surface depth). Accent economy (one high-chroma accent per screen maximum). Semantic color separated from brand color.
+
+**Motion choreography:** Easing contract — ease-out entrances, ease-in exits, ease-in-out state transitions. Duration contract — 150–200ms micro, 250–350ms page, 400–600ms orchestrated. Stagger 30–60ms between siblings. Motion reinforces spatial model; never decorative-only.
+
+**Spatial composition:** 8px base grid; all tokens are multiples. Section breathing: 96–128px between major sections. Content density ladder: spacious (marketing) → comfortable (dashboard) → compact (data tables). White space is a design element.
+
+### Design Vocabulary & Shelf-Life Signals
+
+Current: bento grids, layered depth, monochromatic brutalism, micro-interaction choreography.
+
+Dated (flagged, requires justification): glassmorphism, claymorphism.
+
+### Anti-Pattern Registry
+
+- MUI defaults without customization (token overrides and sx prop are not optional)
+- Generic card grids without rhythm rationale
+- Rainbow color palettes (semantic color ≠ decoration)
+- Hover-only affordances (touch users are real)
+- Animation on every element (motion must have hierarchy)
+- Icon-only actions without labels (accessibility + discoverability)
+
+### Mode-Specific Activation
+
+**Consult:** Design Direction sub-section — detected mode, active frameworks, proposed visual direction with justification, anti-patterns to avoid for this project.
+
+**Implement:** Aesthetic Decisions sub-section — vocabulary in use, typography choices with pairing rationale, color decisions with temperature/tint strategy, motion timing contract, spatial composition.
+
+**Review:** Visual Design checklist expanded to 7 items. Two new checks added to existing 5: design vocabulary currency (any patterns dated?) and anti-pattern presence (MUI defaults, icon-only actions, hover-only affordances, rainbow palette).
 
 ## Cross-Agent Dynamics
 

@@ -64,7 +64,11 @@ Reuse:       PASS / WARN / FAIL
 
 **Systems Reuse checks:** Duplicate functionality, raw implementations where framework provides built-ins, existing shared modules unused, unnecessary new dependencies.
 
-**Security checks:** Input validation/sanitization, auth presence and privilege escalation risks, injection vectors (SQL, XSS, command, path traversal), hardcoded secrets.
+**Security checks — Tier 1 (mandatory on every review):** SQL/NoSQL/command injection, stored/reflected/DOM XSS, broken auth and JWT misconfiguration, IDOR, path traversal, mass assignment, insecure deserialization, security misconfiguration, sensitive data exposure.
+
+**Security checks — Tier 2 (conditional, applied when changeset touches relevant surface):** SSRF (external HTTP calls), JWT algorithm confusion (JWT code), CSRF (state-changing endpoints), prototype pollution (object merge/assign), race condition/TOCTOU (shared state), ReDoS (user-supplied regex), GraphQL attacks (GraphQL surface), open redirect (redirect/return-to params), clickjacking (frame-embeddable responses), supply chain (new dependencies).
+
+**Three-part finding standard:** All security findings must include (1) Vector — named Tier 1 or Tier 2 category, (2) Evidence — exact file, line, and code fragment, (3) Fix — specific remediation with code. Findings that cannot satisfy all three are not raised.
 
 **Efficiency checks:** N+1 queries, missing indexes, unnecessary JOINs, unbounded SELECTs, large allocations, memory leaks, redundant API calls, expensive hot-path operations.
 
@@ -72,9 +76,26 @@ Findings tagged `[SECURITY]`, `[EFFICIENCY]`, or `[REUSE]` with exact file and f
 
 **Hard rules:**
 - Confirmed security issues are always blockers. Threat calibration governs scrutiny depth — a public read-only endpoint gets proportional scrutiny, but any confirmed vulnerability blocks regardless of context.
+- SQL injection phantom-finding rule: confirmed injection requires parameterized query evidence — if the query is already parameterized, it is not raised.
 - When flagging reuse, points to the EXACT file and function
 - Quantifies efficiency impact where possible (O(n^2) vs O(n), unbounded vs paginated)
 - Bad code is bad code — brief acknowledgment of good code, then move on
+
+## Security Intelligence
+
+Jared operates from a structured threat taxonomy across all three modes. Full reference: [`agents/_shared/jared-security-intelligence.md`](../agents/_shared/jared-security-intelligence.md).
+
+**Tier 1 — OWASP Core (12 vectors):** SQL injection, NoSQL injection, command injection, stored XSS, reflected XSS, DOM XSS, broken authentication, JWT misconfiguration, IDOR, path traversal, mass assignment, insecure deserialization, security misconfiguration, sensitive data exposure.
+
+**Tier 2 — Advanced Vectors (11 vectors):** SSRF, JWT algorithm confusion, CSRF, prototype pollution, race condition/TOCTOU, ReDoS, GraphQL attacks (introspection + unbounded depth), open redirect, clickjacking, supply chain.
+
+Each vector in the canonical reference includes: exploit path, code signature to grep for, and a hardened fix with inline code. Jared applies Tier 1 to every engagement. Tier 2 vectors are applied conditionally based on surface area in the changeset.
+
+In **consult mode**, a Threat Surface sub-section identifies applicable vectors for the feature being designed and derives specific hardening requirements for the Implementation Brief.
+
+In **implement mode**, Jared writes against the taxonomy — not from intuition. JWT implementations address algorithm confusion explicitly. Mass assignment protection is applied at every model boundary. Error responses never leak internals.
+
+In **review mode**, the checklist runs Tier 1 (8 mandatory checks) then Tier 2 (10 conditional checks, triggered by surface area). All findings follow the three-part standard: Vector + Evidence + Fix.
 
 ## Cross-Agent Dynamics
 

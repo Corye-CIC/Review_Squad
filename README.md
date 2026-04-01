@@ -2,6 +2,8 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+> **V3.9** — **Design Voice** added to Stevey Boy Choi (all three modes): greenfield/adaptive mode detection, four aesthetic frameworks (hierarchy, tension, rhythm, gestalt), current design vocabulary with shelf-life signals (glassmorphism/claymorphism flagged as dated), craft depth across typography pairing, color theory (temperature contrast + tint stacking), motion choreography (easing + duration contracts), and spatial composition (8px grid + density ladder). Anti-pattern registry enforced in review. **Security Intelligence** added to Jared (all three modes): 12 Tier 1 OWASP Core vectors + 11 Tier 2 advanced vectors (SSRF, JWT algorithm confusion, CSRF, prototype pollution, race conditions, ReDoS, GraphQL attacks, and more), each with exploit path + code signature + hardened fix. Three-part finding standard enforced — no speculative security claims. Security review checklist restructured from 4 generic checks to Tier 1 (8 mandatory) + Tier 2 (10 conditional). Both layers backed by canonical reference files in `agents/_shared/`. — [Full changelog →](https://corye-cic.github.io/Review_Squad/changelogs/v3.9.html)
+>
 > **V3.8** — `/debate-false-positive` command: structured 3-round multi-agent debate for false positive stress testing. Introduces the **pre-flight gate system** — mandatory verification checks injected directly into agent prompts before any finding in a category can be raised. 11-run calibration achieved 7/7 expected false positives correctly cleared with 0 phantom claims (up from 1/6 cleared and 5 phantoms at baseline). Core finding: structural intervention in the command prompt overrides behavioral priors more reliably than rules in agent definition files. Emily's phantom scoring definition narrowed to "objectively false claims about the code" — correct-but-out-of-scope concerns no longer count as phantoms. Full calibration methodology in [`docs/superpowers/methodology/`](docs/superpowers/methodology/). — [Full changelog →](https://corye-cic.github.io/Review_Squad/changelogs/v3.8.html)
 >
 > **V3.7** — Agent quality pass derived from experimental multi-agent debate session. Emily: deduplication guard, pre-defined problem fast-track, "wrong direction > visible damage" framing. FC review: cross-agent connections output section. Jared review: proportional threat calibration (scrutiny depth ≠ verdict threshold). Stevey review: chain-citing, invisible-bugs ownership, user-visible impact priority. Nando review: Emily added to squad roster, logical fallacy identification in synthesis, Emily CHALLENGE resolution required. PM Cory: receipts-backed challenges, outcome specificity over generic coordination claims. Cross-cutting: stale copy-paste rules removed from non-implementation agents; parallel execution contradiction resolved across all three technical reviewers; PM Cory memory carve-out fixed in consult and implement modes. — [Full changelog →](https://corye-cic.github.io/Review_Squad/changelogs/v3.7.html)
@@ -99,6 +101,8 @@ Ruthlessly practical and allergic to waste. Sees the whole system end-to-end and
 
 **Review scores:** `Security: PASS/WARN/FAIL` | `Efficiency: PASS/WARN/FAIL` | `Reuse: PASS/WARN/FAIL`
 
+**Security Intelligence (V3.9):** Operates from a 23-vector threat taxonomy — 12 Tier 1 OWASP Core vectors (mandatory every review) + 11 Tier 2 advanced vectors (SSRF, JWT algorithm confusion, CSRF, prototype pollution, ReDoS, GraphQL attacks, and more, applied conditionally by surface area). Three-part finding standard: Vector + Evidence + Fix — no speculative claims. Consult mode surfaces a Threat Surface section in the Architecture Brief. Canonical reference: [`agents/_shared/jared-security-intelligence.md`](agents/_shared/jared-security-intelligence.md).
+
 **Blocker rules:** Confirmed security issues are always blockers. Threat calibration governs scrutiny depth — a public read-only endpoint gets proportional scrutiny, but any confirmed vulnerability blocks regardless of context. Points to EXACT file and function when flagging reuse. Quantifies efficiency impact (O(n^2) vs O(n)).
 
 ---
@@ -128,9 +132,11 @@ Laid-back and approachable, but razor sharp. Wears two hats: **Frontend** (activ
 | Implement | Frontend code + connectivity code | HTML/CSS/JS, components, accessibility, service clients, caching layers, circuit breakers, integration tests |
 | Review | 5-dimension ratings | Visual, UX, Performance, Accessibility, Connectivity per file/component/service |
 
-**Review scores:** `Visual: Clean/Decent/Rough` | `UX: Smooth/Okay/Clunky` | `Performance: Fast/Fine/Sluggish` | `Accessibility: Solid/Gaps/Needs Work` | `Connectivity: Clean/Redundant/Fragile`
+**Design Voice (V3.9):** Greenfield/adaptive mode detection, four aesthetic frameworks (hierarchy, tension, rhythm, gestalt), design vocabulary with shelf-life signals (glassmorphism/claymorphism flagged as dated), craft depth across typography pairing, color theory, motion choreography, and spatial composition. Anti-pattern registry (MUI defaults, hover-only affordances, rainbow palettes, icon-only actions) enforced in review. Canonical reference: [`agents/_shared/stevey-design-principles.md`](agents/_shared/stevey-design-principles.md).
 
-**Blocker rules:** Accessibility failures that prevent operation. Redundant service calls that double latency. Missing timeouts on service-to-service calls — every time.
+**Review scores:** `Visual: Clean/Decent/Rough` | `UX: Smooth/Okay/Clunky` | `Performance: Fast/Fine/Sluggish` | `Accessibility: Solid/Gaps/Needs Work` | `Connectivity: Clean/Redundant/Fragile` | `Design vocab: Current/Dated/Flagged` | `Anti-patterns: None/Present/Blocking`
+
+**Blocker rules:** Accessibility failures that prevent operation. Redundant service calls that double latency. Missing timeouts on service-to-service calls — every time. MUI defaults without customization always flagged.
 
 ---
 
