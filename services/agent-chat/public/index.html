@@ -388,7 +388,17 @@
       }
     }
 
+    function clearMessages() {
+      messageList.replaceChildren();
+      const empty = document.createElement('p');
+      empty.id = 'empty-state';
+      empty.style.cssText = 'color: var(--muted); text-align: center; padding: 2em 0; font-size: 12px;';
+      empty.textContent = 'Waiting for messages…';
+      messageList.appendChild(empty);
+    }
+
     function renderHistory(messages) {
+      clearMessages();
       for (const m of messages) renderMessage(m);
     }
 
@@ -438,10 +448,15 @@
             break;
 
           case 'lifecycle':
-            renderLifecycle(payload);
-            afterAppend();
-            if (payload.event === 'room-changed') scrollToBottom();
-            if (payload.event === 'phase_end') scrollToBottom();
+            if (payload.event === 'history-cleared') {
+              clearMessages();
+              scrollToBottom();
+            } else {
+              renderLifecycle(payload);
+              afterAppend();
+              if (payload.event === 'room-changed') scrollToBottom();
+              if (payload.event === 'phase_end') scrollToBottom();
+            }
             break;
         }
       });

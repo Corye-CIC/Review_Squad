@@ -255,6 +255,14 @@ agentServer.listen(AGENT_PORT, AGENT_HOST, () => {
 // ---------------------------------------------------------------------------
 
 const dashServer = http.createServer((req, res) => {
+  if (req.method === 'POST' && req.url === '/clear') {
+    messageHistory.length = 0;
+    broadcastLifecycle('history-cleared', { room: currentRoom });
+    log('Message history cleared via HTTP');
+    res.writeHead(204).end();
+    return;
+  }
+
   if (req.method !== 'GET') {
     res.writeHead(405).end('Method Not Allowed');
     return;

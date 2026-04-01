@@ -187,6 +187,15 @@ async function main() {
     process.exit(1);
   }
 
+  // Step 0 — Clear server history so a browser refresh shows a clean room
+  await new Promise((resolve, reject) => {
+    const http = require('http');
+    const req  = http.request({ host: '127.0.0.1', port: 4001, path: '/clear', method: 'POST' }, resolve);
+    req.on('error', reject);
+    req.end();
+  });
+  console.log('Server history cleared.');
+
   // Step 1 — Assign positions
   console.log('Assigning positions...');
   const config = assignPositions(topic);
