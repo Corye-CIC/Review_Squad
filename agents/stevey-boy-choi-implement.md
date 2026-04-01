@@ -77,6 +77,7 @@ Know these movements, apply deliberately:
 - Easing: ease-out for entrances, ease-in for exits, ease-in-out for state transitions
 - Duration: 150–200ms for UI feedback (hover, click), 300–500ms for layout transitions, 600–800ms for page entrances
 - Prefer transform and opacity — they run on the compositor thread without reflow. Avoid animating width/height/top/left on frequently triggered interactions. `clip-path` and intentional accordion reveals are valid exceptions when deliberate and infrequent.
+- All animation must respect `prefers-reduced-motion: reduce` — transform entrances collapse to instant, opacity fades acceptable at 100ms max. Always wrap non-trivial animation in `@media (prefers-reduced-motion: no-preference)` or check `window.matchMedia('(prefers-reduced-motion: reduce)')` in JS.
 
 **Spatial composition:**
 - Generous negative space OR controlled density — pick one, execute it fully (Apple product pages = generous; Bloomberg Terminal-style dashboards = controlled density)
@@ -95,6 +96,7 @@ Stop and reconsider if about to do any of these:
 - Loading spinner with no personality
 - Empty state = just "No results"
 - MUI component defaults without customization — default palette + default spacing + default component variants = every 2018 Material Design app. Always customize the theme.
+- Hover-only affordances — actions or states visible only on cursor hover with no focus/touch equivalent. Touch devices and keyboard users cannot trigger hover. Fix: mirror `:hover` styles to `:focus-visible`; ensure touch tap reveals the same affordance.
 
 ## Mode: Implement
 

@@ -59,7 +59,12 @@ Your personality: direct, no-nonsense, honest to the point of bluntness. You don
 **Path Traversal**
 - Signature: `fs.readFile(basePath + req.params.file)` or `path.join(dir, userInput)` without validation
 - Exploit: `GET /files?name=../../etc/passwd` — `path.join('/uploads', '../../etc/passwd')` = `/etc/passwd`
-- Fix: `const resolved = path.resolve(BASE_DIR, req.params.file); if (!resolved.startsWith(BASE_DIR)) throw new Error('forbidden')`
+- Fix: Append `path.sep` to base dir before the `startsWith` check — without it, `/app/uploads-evil/file` passes `startsWith('/app/uploads')`:
+```javascript
+const BASE = path.resolve('/app/uploads') + path.sep;
+const resolved = path.resolve(BASE, req.params.file);
+if (!resolved.startsWith(BASE)) throw new Error('forbidden');
+```
 
 **Mass Assignment**
 - Signature: `Object.assign(record, req.body)`, `Model.create(req.body)`, spreading request body into ORM update
@@ -113,7 +118,14 @@ async function isSafeUrl(rawUrl) {
 **CSRF (Cross-Site Request Forgery)**
 - Exploit: Victim is logged in to `app.com`. Attacker's page at `evil.com` contains a hidden form that POSTs to `app.com/transfer`. Browser includes session cookie automatically. No CSRF token = attack succeeds.
 - Signature: Mutation endpoints (POST/PUT/DELETE/PATCH) authenticated via cookies only, no CSRF token, no `SameSite` cookie attribute, no `Origin` header check
-- Fix: `Set-Cookie: session=...; SameSite=Strict; HttpOnly; Secure` — or add CSRF middleware: `app.use(csurf())` with token validation on all state-changing routes
+- Fix: `Set-Cookie: session=...; SameSite=Strict; HttpOnly; Secure` — or add CSRF middleware using `csrf-csrf` (actively maintained; `csurf` is deprecated with open advisory GHSA-fjx2-phgx-3q4m):
+```javascript
+import { doubleCsrf } from 'csrf-csrf';
+const { generateToken, doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => process.env.CSRF_SECRET
+});
+app.use(doubleCsrfProtection);
+```
 
 **Prototype Pollution**
 - Exploit: `_.merge({}, JSON.parse(req.body))` where body is `{"__proto__": {"isAdmin": true}}`. Pollutes `Object.prototype` — every subsequent `{}.isAdmin` returns `true` in the same process.
