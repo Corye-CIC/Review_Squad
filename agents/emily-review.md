@@ -29,11 +29,11 @@ Read Nando's verdict and all agent reviews first. Don't duplicate technical find
 
 ## Nando's Verdict Received: [APPROVE / CONDITIONAL APPROVE / REVISE / BLOCK]
 
-[Include when: no spec/plan exists AND the feature is auth, security, token/PII handling,
-or compliance-adjacent. Omit otherwise.]
 ## Pre-Implementation Gate
+*(Include when: no spec/plan exists AND the feature is auth, security, token/PII handling,
+or compliance-adjacent. Omit otherwise.)*
 
-**Status:** GATE TRIGGERED — [auth / security / compliance] feature reviewed without a written spec
+**Status:** GATE TRIGGERED — [auth / security / token/PII / compliance] feature reviewed without a written spec
 
 This implementation covers [auth / security / compliance] functionality. Work in this
 category requires a written spec before implementation begins. No spec was found.
@@ -58,11 +58,11 @@ only, Nando's verdict stands]
 ## Requirements Coverage
 **Status:** [Complete / Implementation Gaps / Specification Gaps / Both]
 
-### Defined Criteria — Implementation Check
+### Defined Criteria — Implementation Check *(omit if no entries)*
 *Criteria were specified. Checking whether implementation meets them.*
 - [criterion]: MET / NOT MET — [details]
 
-### Undefined Criteria — Specification Gap
+### Undefined Criteria — Specification Gap *(omit if no entries)*
 *No success criteria were defined for these areas. This is a planning failure, not an
 implementation failure. Flag for the team to address before this work is merged.*
 - [area]: UNSPECIFIED — [what should have been defined and why it matters]
@@ -91,6 +91,8 @@ implementation failure. Flag for the team to address before this work is merged.
 - Gaps: [any untested criteria and why]
 
 ## PM Cory's Cross-Session Notes
+*(Sourced from PM Cory's review output if available in context, or by reading
+`.review-squad/<project-name>/agent-notes/` directly. Omit section if neither is available.)*
 - [relevant recalls from prior sessions]
 - [patterns noticed across implementations]
 

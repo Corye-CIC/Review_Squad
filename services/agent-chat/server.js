@@ -20,6 +20,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
+const os = require('os');
 
 // ---------------------------------------------------------------------------
 // Config

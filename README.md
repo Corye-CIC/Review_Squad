@@ -54,6 +54,8 @@ The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 | `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | Domain heuristics (auto-routed) or any combination |
 | `/create-agent` | Interactively build a custom agent via Q&A — 6 templates, preview before write | — |
 | `/update-reviewsquad` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, and hooks | — |
+| `/debate` | Dynamic debate on any topic — agents auto-assigned positions, 3 rounds, Nando verdicts. Requires agent-chat server. | All 6 agents |
+| `/debate-false-positive` | Code review false positive stress test — structured 3-round debate with answer key scoring | FC, Jared, Stevey, PM Cory, Nando, Emily |
 | `/agent-chat:on` | Start the agent chat server (ports 4000 + 4001) as a background daemon | — |
 | `/agent-chat:off` | Stop the agent chat server if running | — |
 
@@ -565,6 +567,8 @@ commands/                          # Lifecycle commands (10) + utilities (2)
   agent-chat/
     on.md                          #   Start the agent chat server as a background daemon
     off.md                         #   Stop the agent chat server
+  debate.md                        #   Dynamic topic debate (any topic, auto-assigned positions)
+  debate-false-positive.md         #   Code review false positive stress test
 hooks/
   review-squad-gate.js             # PostToolUse hook — review advisory at wrap-up points
   review-squad-context-monitor.js  # PostToolUse hook — context window WARNING/CRITICAL alerts
@@ -573,6 +577,7 @@ templates/
   ship-presentation.html           # Self-contained HTML reference template
 services/
   agent-chat/                      # Agent chat dashboard server
+    debate.js                      #   General-purpose debate orchestrator (node debate.js "<topic>")
   chat-bridge/                     # Bridge between agents and chat server
 docs/
   emily.md                         # Agent deep dive — Emily
