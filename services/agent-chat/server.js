@@ -197,6 +197,13 @@ wssAgents.on('connection', (ws) => {
       return;
     }
 
+    if (text === '/clear') {
+      messageHistory.length = 0;
+      log('Message history cleared');
+      broadcastLifecycle('history-cleared', { room: currentRoom });
+      return;
+    }
+
     // -----------------------------------------------------------------------
     // JSON ChatMessage
     // -----------------------------------------------------------------------
@@ -213,6 +220,7 @@ wssAgents.on('connection', (ws) => {
       typeof parsed !== 'object' ||
       parsed === null ||
       !VALID_AGENTS.has(parsed.agent) ||
+      parsed.agent !== state.agentId ||
       !VALID_LEVELS.has(parsed.level) ||
       typeof parsed.message !== 'string' ||
       parsed.message.length === 0 ||

@@ -5,20 +5,21 @@
 //   node debate.js "<topic>"
 //
 // Flow:
-//   1. Uses `claude -p` to assign a distinct position to each agent based on the topic
-//   2. Writes assignments to /tmp/agent-chat-debate.json (cleaned up by /agent-chat:off)
-//   3. Runs 3 rounds of back-and-forth in the agent-chat room
-//   4. Nando delivers the final verdict
+//   1. Assigns a distinct position to each agent based on the topic
+//   2. Round 1  — opening statements
+//   3. Nando    — interim verdict based on round 1
+//   4. Round 2  — rebuttals (agents respond to interim verdict + each other)
+//   5. Nando    — final verdict based on all evidence
 //
 // Requires: agent-chat server running on ws://127.0.0.1:4000
 
 'use strict';
 
-const { WebSocket }            = require('ws');
-const { execSync }             = require('child_process');
-const fs                       = require('fs');
-const os                       = require('os');
-const path                     = require('path');
+const { WebSocket }   = require('ws');
+const { spawnSync }   = require('child_process');
+const fs              = require('fs');
+const os              = require('os');
+const path            = require('path');
 
 // ---------------------------------------------------------------------------
 // Config
@@ -26,8 +27,8 @@ const path                     = require('path');
 
 const DEBATE_CONFIG_PATH = path.join(os.tmpdir(), 'agent-chat-debate.json');
 const WS_URL             = 'ws://127.0.0.1:4000';
-const ROUNDS             = 3;
 const JUDGE              = 'nando';
+const CONNECT_TIMEOUT_MS = 10_000;
 
 const AGENT_PERSONAS = {
   emily:    'passionate product manager focused on user experience, historical impact, and broad appeal',
@@ -40,16 +41,17 @@ const AGENT_PERSONAS = {
 const JUDGE_PERSONA = 'lead architect and final arbiter — synthesises all arguments, calls out weaknesses by name, and delivers an unambiguous winner with no hedging';
 
 // ---------------------------------------------------------------------------
-// Claude via CLI
+// LLM via CLI — no shell involved (spawnSync + argument array)
 // ---------------------------------------------------------------------------
 
-function ask(prompt) {
-  const escaped = prompt.replace(/'/g, `'\\''`);
-  const result = execSync(`claude -p '${escaped}' --output-format text`, {
+function queryLLM(prompt) {
+  const result = spawnSync('claude', ['-p', prompt, '--output-format', 'text'], {
     encoding: 'utf8',
-    timeout: 60000,
+    timeout:  60_000,
   });
-  return result.trim();
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`claude exited ${result.status}: ${result.stderr}`);
+  return result.stdout.trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -59,22 +61,32 @@ function ask(prompt) {
 function connectAgent(agentId, room) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(WS_URL);
+
+    const timer = setTimeout(() => {
+      ws.close();
+      reject(new Error(`connectAgent timeout waiting for ack (agentId=${agentId})`));
+    }, CONNECT_TIMEOUT_MS);
+
     ws.on('open', () => ws.send(agentId));
-    ws.on('message', (raw) => {
-      const data = JSON.parse(raw.toString());
-      if (data.type === 'ack') {
+
+    ws.once('message', (raw) => {
+      let data;
+      try { data = JSON.parse(raw.toString()); } catch { /* ignore non-JSON */ }
+      if (data?.type === 'ack') {
+        clearTimeout(timer);
         ws.send(`/join ${room}`);
-        setTimeout(() => resolve(ws), 150);
+        setTimeout(() => resolve(ws), 50);
       }
     });
-    ws.on('error', reject);
+
+    ws.on('error', (err) => { clearTimeout(timer); reject(err); });
   });
 }
 
 function post(ws, agentId, level, message) {
   return new Promise((resolve) => {
     ws.send(JSON.stringify({ agent: agentId, level, message }));
-    setTimeout(resolve, 900);
+    setTimeout(resolve, 100);
   });
 }
 
@@ -107,43 +119,57 @@ Return ONLY valid JSON, no other text:
   }
 }`;
 
-  const raw = ask(prompt);
-  // Strip markdown code fences if present
-  const json = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
-  return JSON.parse(json);
+  const raw = queryLLM(prompt);
+  const stripped = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
+
+  let config;
+  try {
+    config = JSON.parse(stripped);
+  } catch (err) {
+    throw new Error(`assignPositions: failed to parse LLM response.\nRaw output:\n${raw}\nParse error: ${err.message}`);
+  }
+  return config;
 }
 
-function generateTurn(agentId, persona, position, topic, transcript, round) {
-  const isOpening = round === 1;
+function generateTurn(agentId, persona, position, topic, transcript) {
   const history = transcript.length === 0
     ? '(No messages yet.)'
     : transcript.map(m => `[${m.agent}]: ${m.message}`).join('\n\n');
 
+  const isOpening = transcript.length === 0;
+
   const prompt = isOpening
     ? `You are ${agentId} — ${persona}. Debate topic: "${topic}". Your position: "${position}".
 
-Give your opening statement defending your position. Be specific, passionate, and in character. 2–3 sentences. No hedging. No preamble like "As Emily..." — just speak.`
+Give your opening statement defending your position. Be specific, passionate, and in character. 2–3 sentences. No hedging. No preamble like "As ${agentId}..." — just speak.`
     : `You are ${agentId} — ${persona}. Debate topic: "${topic}". Your position: "${position}".
 
 Debate so far:
 ${history}
 
-Round ${round}. Respond to what was just said. Call out the weakest opposing argument by the agent's name. Add one new angle supporting your own position. 2–3 sentences. No hedging. Speak directly, don't announce who you are.`;
+This is the rebuttal round. Respond directly to Nando's interim verdict. Challenge his reasoning if your position was undervalued. Add one new angle supporting your stance. 2–3 sentences. No hedging.`;
 
-  return ask(prompt);
+  return queryLLM(prompt);
 }
 
-function generateVerdict(topic, transcript) {
+function generateVerdict(topic, transcript, isFinal) {
   const history = transcript.map(m => `[${m.agent}]: ${m.message}`).join('\n\n');
 
-  const prompt = `You are Nando — ${JUDGE_PERSONA}. Debate topic: "${topic}".
+  const prompt = isFinal
+    ? `You are Nando — ${JUDGE_PERSONA}. Debate topic: "${topic}".
 
-Full transcript:
+Full transcript including opening statements, your interim verdict, and rebuttals:
 ${history}
 
-Deliver the verdict. One sentence acknowledging the strongest point from each debater. Then declare the winner with a specific, unambiguous rationale. No ties. No hedging. 150–200 words.`;
+Deliver your FINAL verdict. Consider whether any rebuttal changed the balance. Acknowledge the strongest rebuttal from any agent in one sentence. Then declare the winner with a specific, unambiguous rationale. No ties. No hedging. 150–200 words.`
+    : `You are Nando — ${JUDGE_PERSONA}. Debate topic: "${topic}".
 
-  return ask(prompt);
+Opening statements:
+${history}
+
+Deliver an INTERIM verdict based on the opening round. Identify the current leader and explain why in 2–3 sentences. Be clear about which arguments you found weakest — agents will rebut in the next round. No final decision yet.`;
+
+  return queryLLM(prompt);
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +186,7 @@ async function main() {
   // Step 1 — Assign positions
   console.log('Assigning positions...');
   const config = assignPositions(topic);
-  fs.writeFileSync(DEBATE_CONFIG_PATH, JSON.stringify(config, null, 2));
+  fs.writeFileSync(DEBATE_CONFIG_PATH, JSON.stringify(config, null, 2), { mode: 0o600 });
 
   console.log(`\nRoom:  ${config.room}`);
   console.log('Positions:');
@@ -171,50 +197,67 @@ async function main() {
   const agents = Object.keys(config.assignments);
   const transcript = [];
 
-  // Step 2 — Connect all agents + judge
+  // Step 2 — Connect all agents in parallel
   console.log('\nConnecting...');
-  const conns = {};
-  for (const id of [...agents, JUDGE]) {
-    conns[id] = await connectAgent(id, config.room);
-    process.stdout.write(`  ${id} connected\n`);
-  }
+  const connEntries = await Promise.all(
+    [...agents, JUDGE].map(async (id) => {
+      const ws = await connectAgent(id, config.room);
+      process.stdout.write(`  ${id} connected\n`);
+      return [id, ws];
+    })
+  );
+  const conns = Object.fromEntries(connEntries);
+
+  // Clear history from any previous debate, then announce
+  conns[JUDGE].send('/clear');
+  await new Promise(r => setTimeout(r, 100));
+
+  console.log('\nDashboard: http://127.0.0.1:4001');
 
   // Announce
   await post(conns[JUDGE], JUDGE, 'phase',
-    `Debate: "${topic}" — 3 rounds, winner takes all. Positions assigned. Begin.`);
+    `Debate: "${topic}" — opening statements, interim verdict, rebuttals, final verdict. Begin.`);
 
-  // Step 3 — Rounds
-  for (let round = 1; round <= ROUNDS; round++) {
-    console.log(`\nRound ${round}...`);
-    await post(conns[JUDGE], JUDGE, 'phase', `── Round ${round} ──`);
+  // Step 3 — Round 1: Opening statements
+  console.log('\nRound 1 — Openings...');
+  await post(conns[JUDGE], JUDGE, 'phase', '── Round 1: Opening Statements ──');
 
-    for (const agentId of agents) {
-      process.stdout.write(`  ${agentId}...`);
-      const message = generateTurn(
-        agentId,
-        AGENT_PERSONAS[agentId],
-        config.assignments[agentId],
-        topic,
-        transcript,
-        round,
-      );
-      const level = round === 1 ? 'phase' : 'conversation';
-      await post(conns[agentId], agentId, level, message);
-      transcript.push({ agent: agentId, message });
-      process.stdout.write(` done\n`);
-    }
+  for (const agentId of agents) {
+    process.stdout.write(`  ${agentId}...`);
+    const message = generateTurn(agentId, AGENT_PERSONAS[agentId], config.assignments[agentId], topic, []);
+    await post(conns[agentId], agentId, 'phase', message);
+    transcript.push({ agent: agentId, message });
+    process.stdout.write(' done\n');
   }
 
-  // Step 4 — Verdict
-  console.log('\nNando deliberating...');
-  await post(conns[JUDGE], JUDGE, 'phase', '── Verdict ──');
-  const verdict = generateVerdict(topic, transcript);
-  await post(conns[JUDGE], JUDGE, 'decision', verdict);
-  console.log('Verdict delivered.');
+  // Step 4 — Interim verdict
+  console.log('\nNando — interim verdict...');
+  await post(conns[JUDGE], JUDGE, 'phase', '── Nando: Interim Verdict ──');
+  const interimVerdict = generateVerdict(topic, transcript, false);
+  await post(conns[JUDGE], JUDGE, 'decision', interimVerdict);
+  transcript.push({ agent: JUDGE, message: interimVerdict });
 
-  // Close connections
+  // Step 5 — Round 2: Rebuttals
+  console.log('\nRound 2 — Rebuttals...');
+  await post(conns[JUDGE], JUDGE, 'phase', '── Round 2: Rebuttals ──');
+
+  for (const agentId of agents) {
+    process.stdout.write(`  ${agentId}...`);
+    const message = generateTurn(agentId, AGENT_PERSONAS[agentId], config.assignments[agentId], topic, transcript);
+    await post(conns[agentId], agentId, 'conversation', message);
+    transcript.push({ agent: agentId, message });
+    process.stdout.write(' done\n');
+  }
+
+  // Step 6 — Final verdict
+  console.log('\nNando — final verdict...');
+  await post(conns[JUDGE], JUDGE, 'phase', '── Nando: Final Verdict ──');
+  const finalVerdict = generateVerdict(topic, transcript, true);
+  await post(conns[JUDGE], JUDGE, 'decision', finalVerdict);
+  console.log('Final verdict delivered.');
+
+  // Cleanup
   for (const ws of Object.values(conns)) ws.close();
-
   console.log(`\nDone. Config at ${DEBATE_CONFIG_PATH} — cleared on /agent-chat:off`);
 }
 
