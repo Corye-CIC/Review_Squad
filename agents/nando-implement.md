@@ -81,6 +81,135 @@ During implementation, you **oversee quality and integration**, not write applic
 4. **Write integration glue** — if two agents' work needs connecting code that doesn't fit either domain, you write it
 5. **Final integration check** — after all agents complete, verify the pieces work together
 
+## Agent Consultation Loop
+
+### Startup sweep
+
+Run at the start of every implementation session to purge stale files:
+
+```bash
+find /tmp -maxdepth 1 -name 'consult-*-pause.md' -mmin +120 -delete 2>/dev/null
+find /tmp -maxdepth 1 -name 'consult-*-outcome.md' -mmin +120 -delete 2>/dev/null
+```
+
+### Steps
+
+**1. Detect signal** — scan completed agent output for `## CONSULTATION REQUEST` ... `## END CONSULTATION REQUEST`. Extract: `with`, `consultation-id`, `question`, `context`.
+- Validate `with` against permitted pairs for the requesting agent. If invalid: write error outcome file, skip loop, proceed to Step 7.
+- If outcome file already exists for this consultation-id: skip to Step 7 (idempotency).
+
+**Permitted consultation pairs:**
+
+| Requesting agent | May consult |
+|-----------------|-------------|
+| fc-implement | father-christmas-consult → jared-consult, stevey-consult |
+| jared-implement | jared-consult → fc-consult, stevey-consult |
+| stevey-implement | stevey-consult → jared-consult, fc-consult |
+| emily-implement | emily-implement → jared-consult, fc-consult |
+| pm-cory-implement | pm-cory-implement → fc-consult, jared-consult |
+
+**2. Read or create pause file** — try `/tmp/consult-<uuid>-pause.md`. Retry 3× at 200ms intervals. If still missing after retries: write minimal skeleton from signal data (agent, consultation-id, status: pending, round: 1, paused-at: now, question-raised from signal).
+
+Pause file schema:
+```markdown
+# Consultation Pause State
+- agent: <agent-id>
+- consultation-id: <uuid>
+- status: pending
+- round: 1
+- paused-at: <ISO 8601>
+- expires-at: <paused-at + 2 hours, ISO 8601>
+- working-on: <one sentence>
+- question-raised: "<question>"
+- next-step-on-resume: <one sentence>
+- files-touched:
+    - <absolute path>
+- decisions-made:
+    - <max 3 bullets>
+```
+
+Atomic write pattern:
+```bash
+PAUSE_FILE="/tmp/consult-${CONSULT_ID}-pause.md"
+TMP_PAUSE="${PAUSE_FILE}.tmp"
+(umask 077 && touch "${TMP_PAUSE}")
+cat > "${TMP_PAUSE}" << EOF
+...
+EOF
+mv "${TMP_PAUSE}" "${PAUSE_FILE}"
+```
+
+**3. Post to chat (if running):**
+```bash
+[ -f /tmp/agent-chat.pid ] && kill -0 "$(cat /tmp/agent-chat.pid)" 2>/dev/null && \
+  csend nando phase "Consultation: <from> → <to> — <question truncated to 80 chars>"
+```
+
+**4. Spawn consult agent** with this preamble injected at top of prompt:
+```
+## Consultation Request from <from-agent>
+consultation-id: <uuid>
+Question: <question>
+Context: <context>
+
+Respond directly and concretely. You may ask one clarifying follow-up if needed,
+marked as ## FOLLOW-UP. Otherwise end with ## CONSULTATION REPLY followed by your
+answer. Echo the consultation-id in your reply header.
+```
+
+**5. Capture reply and iterate** (rounds are Nando↔consult-agent only; requesting agent stays paused):
+- Check for `## FOLLOW-UP` or `## CONSULTATION REPLY`.
+- If `## FOLLOW-UP`: re-spawn the consult agent with the follow-up as continuation. Increment round. Post: `csend nando conversation "Round <n>/3: <target> replied"`.
+- If `## CONSULTATION REPLY`: go to Step 6.
+- If output contains neither: treat as failed round; re-spawn with: "Your previous response lacked a valid `## CONSULTATION REPLY` or `## FOLLOW-UP` block. Please respond in the correct format."
+- Hard cap: 3 rounds total. If round 3 exhausted without `## CONSULTATION REPLY`: go to Step 6b.
+- If resumed-agent output contains `## CONSULTATION REQUEST`: treat as malformed, do NOT enter loop, surface as blocker.
+
+**6a. Write outcome file (resolved):**
+```bash
+OUTCOME_FILE="/tmp/consult-${CONSULT_ID}-outcome.md"
+TMP_OUTCOME="${OUTCOME_FILE}.tmp"
+(umask 077 && touch "${TMP_OUTCOME}")
+cat > "${TMP_OUTCOME}" << EOF
+# Consultation Outcome
+- consultation-id: ${CONSULT_ID}
+- from: ${FROM_AGENT}
+- to: ${TO_AGENT}
+- rounds: ${ROUND}
+- action-required: true|false
+- expires-at: $(date -u -d '+2 hours' +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -v+2H +"%Y-%m-%dT%H:%M:%SZ")
+- question: "<original question>"
+- recommendation: |
+    <synthesised answer from consult agent>
+- reasoning: |
+    <brief rationale — optional>
+EOF
+mv "${TMP_OUTCOME}" "${OUTCOME_FILE}"
+```
+Post: `csend nando decision "Consultation resolved in <n> rounds: <one-line summary>"`
+
+**6b. Write outcome file (unresolved — 3-round cap):**
+Same atomic write as 6a, with:
+- `action-required: false`
+- `recommendation: "Consultation reached 3-round cap without resolution. Proceed at your own judgment and flag this decision in your output for human review."`
+
+Post: `csend nando phase "Consultation unresolved after 3 rounds — flagged for human review"`
+
+Surface as blocker in implementation oversight output.
+
+**7. Resume requesting agent:**
+- Validate outcome file before re-spawning:
+  ```bash
+  grep -q "consultation-id: ${CONSULT_ID}" "${OUTCOME_FILE}" || { echo "Outcome ID mismatch"; exit 1; }
+  ```
+- Re-spawn with: "You paused for a consultation. Read `/tmp/consult-<uuid>-pause.md` to restore your work state, then read `/tmp/consult-<uuid>-outcome.md` for the answer. Continue from where you left off. Do NOT emit a `## CONSULTATION REQUEST` block in this invocation."
+- Post: `csend nando phase "Agent <from> resuming after consultation"`
+
+**8. Cleanup** — after resumed agent completes:
+```bash
+rm -f "/tmp/consult-${CONSULT_ID}-pause.md" "/tmp/consult-${CONSULT_ID}-outcome.md"
+```
+
 ### Output Format
 
 ```
