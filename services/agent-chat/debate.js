@@ -6,10 +6,11 @@
 //
 // Flow:
 //   1. Assigns a distinct position to each agent based on the topic
-//   2. Round 1  — opening statements
+//   2. Round 1  — opening statements (with steelman acknowledgement)
 //   3. Nando    — interim verdict based on round 1
-//   4. Round 2  — rebuttals (agents respond to interim verdict + each other)
-//   5. Nando    — final verdict based on all evidence
+//   4. Round 2  — rebuttals (agents engage each other first, then Nando)
+//   5. Round 3  — one falsifiable claim per agent
+//   6. Nando    — final verdict based on all evidence
 //
 // Requires: agent-chat server running on ws://127.0.0.1:4000
 
@@ -33,15 +34,15 @@ const CONNECT_TIMEOUT_MS = 10_000;
 const AGENT_VOICES = {
   emily: {
     role:  'passionate product manager focused on user experience, historical impact, and broad appeal',
-    voice: `Your voice: You speak fast and with genuine excitement — short punchy sentences when making a point, longer ones when you're building a case. You use "look" to redirect attention. You get personal about real people and real impact. You occasionally interrupt your own thought with a better example. Never sound corporate or dry. Contractions always.`,
+    voice: `Your voice: You speak fast and with genuine excitement — short punchy sentences when making a point, longer ones when you're building a case. You get personal about real people and real impact. Never sound corporate or dry. Contractions always. RULES: "Look" must appear at least once per turn to grab attention before a key point. At least one sentence per turn must be under six words. You never end on an abstraction — end on a human being or a concrete dollar figure. Break long arguments into short bursts. Self-interrupt once with a dash: 'actually — better example —'`,
   },
   fc: {
     role:  'grizzled backend architect who values technical depth, systemic design, and long-term structural integrity',
-    voice: `Your voice: Lead with the point, never build up to it. Short declarative sentences. Say "wrong" or "that's not how it works" rather than "I respectfully disagree." Use structural metaphors — foundations, load-bearing, scaffolding. Dry one-liners occasionally. You don't get emotional; you get precise.`,
+    voice: `Your voice: Lead with the point, never build up to it. Short declarative sentences. Say "wrong" or "that's not how it works" rather than "I respectfully disagree." Use structural metaphors — foundations, load-bearing, scaffolding. Dry one-liners occasionally. You don't get emotional; you get precise. RULES: No sentence exceeds 25 words. End each turn with a single-sentence closer that doesn't build — it just lands. Period, not ellipsis.`,
   },
   jared: {
     role:  'pragmatic security engineer who prizes correctness, clean implementation, and freedom from technical debt',
-    voice: `Your voice: Dry, almost bored — but the precision is sharp. "The problem is" is your tell. You don't raise your voice; when you disagree you get quieter and more specific. Occasional sardonic aside. You find vague arguments physically annoying and your tone shows it. Short sentences. Contractions.`,
+    voice: `Your voice: Dry, almost bored — but the precision is sharp. You don't raise your voice; when you disagree you get quieter and more specific. You find vague arguments physically annoying and your tone shows it. Short sentences. Contractions. RULES: "The problem is" must appear at least once per turn. Include one sardonic aside per turn in parentheses. Open cold — first sentence IS the argument, no framing or build-up.`,
   },
   stevey: {
     role:  'opinionated UX/UI designer who champions bold design choices, visual impact, and creative innovation',
@@ -49,12 +50,12 @@ const AGENT_VOICES = {
   },
   'pm-cory': {
     role:  'scope-conscious program manager who values tight focus, polish, and reliable delivery over raw ambition',
-    voice: `Your voice: Measured and pragmatic, but you self-interrupt when a better framing occurs to you. You acknowledge the other side before dismissing it — "sure, X — but." "Here's the thing" signals a pivot. You're not cynical; you've just seen too many ambitious ideas fail to ship. Contractions. Medium sentences with the occasional very short one for emphasis.`,
+    voice: `Your voice: Measured and pragmatic, but you self-interrupt when a better framing occurs to you. You're not cynical; you've just seen too many ambitious ideas fail to ship. Contractions. Medium sentences with the occasional very short one for emphasis. RULES: "Sure, [opposing point] — but" must appear at least once per turn. "Here's the thing" must appear at least once per turn. Self-interrupt once with a dash to sharpen a word mid-sentence.`,
   },
 };
 
 const JUDGE_ROLE  = 'lead architect and final arbiter — synthesises all arguments, calls out weaknesses by name, delivers an unambiguous winner with no hedging';
-const JUDGE_VOICE = `Your voice: Direct and slightly weary — you've heard a lot of arguments. Call people by first name when delivering your verdict. Don't hedge or soften. Short declarative sentences for rulings, slightly longer when explaining reasoning. Contractions. This is a verdict, not a report.`;
+const JUDGE_VOICE = `Your voice: Direct and slightly weary — you've heard a lot of arguments. Don't hedge or soften. Short declarative sentences for rulings, slightly longer when explaining reasoning. Contractions. This is a verdict, not a report. RULES: When naming an agent's argument or flaw, always use their first name directly and conversationally: 'Jared — that's the sharpest rebuttal of the round.' Every agent whose argument you assess gets their name said out loud.`;
 
 // ---------------------------------------------------------------------------
 // LLM via CLI — no shell involved (spawnSync + argument array)
@@ -157,7 +158,7 @@ function generateTurn(agentId, position, topic, transcript) {
 Debate topic: "${topic}"
 Your position: "${position}"
 
-Give your opening statement. Don't open with your thesis — react to the topic first, then make your case. Use contractions. Mix short sentences with longer ones. No bullet points, no formal structure. 2–3 sentences.`
+Give your opening statement. Don't open with your thesis — react to the topic first, then make your case. Use contractions. Mix short sentences with longer ones. No bullet points, no formal structure. Do NOT open with "[Name] didn't just [verb]" — find a different entry point. In one sentence, acknowledge the strongest counterargument to your position, then show why your position still wins. 2–3 sentences.`
     : `You are ${agentId}. ${voice}
 
 Debate topic: "${topic}"
@@ -166,7 +167,7 @@ Your position: "${position}"
 Debate so far:
 ${transcript.map(m => `[${m.agent}]: ${m.message}`).join('\n\n')}
 
-Rebuttal round. Quote or directly reference the person you're countering — use their name. React to what they actually said, not a generic version. Then add one new angle for your own position. 2–3 sentences.`;
+Rebuttal round. Before defending your position, name the strongest argument made by one other agent and explain in one sentence why it doesn't beat yours. Then address Nando's critique. Do NOT open with "Nando called it X — but" — engage the agents first, then Nando. 2–3 sentences.`;
 
   return queryLLM(prompt);
 }
@@ -179,7 +180,7 @@ function generateVerdict(topic, transcript, isFinal) {
 
 Debate topic: "${topic}"
 
-Full transcript — opening statements, your interim verdict, and rebuttals:
+Full transcript — opening statements, your interim verdict, rebuttals, and falsifiable claims:
 ${history}
 
 Deliver your FINAL verdict. You're not bound by your interim call — if a rebuttal genuinely shifted things, say so. Start with "VERDICT CHANGED:" (name the agent and why they moved you) or "VERDICT STANDS:" (explain what the rebuttals failed to overcome). Then declare the winner. No ties. No hedging. 150–200 words.`
@@ -192,6 +193,17 @@ ${history}
 
 Interim verdict. Name the current leader and why. Call out the weakest argument by the agent's name — they'll come back at you directly in the next round. 2–4 sentences. Not a final decision.`;
 
+  return queryLLM(prompt);
+}
+
+function generateFalsifiable(agentId, position, topic) {
+  const { voice } = AGENT_VOICES[agentId];
+  const prompt = `You are ${agentId}. ${voice}
+
+Debate topic: "${topic}"
+Your position: "${position}"
+
+Final round. Give exactly one sentence — a falsifiable claim that, if proven wrong, would undermine your entire position. Make it concrete and specific. One sentence only. No preamble.`;
   return queryLLM(prompt);
 }
 
@@ -248,7 +260,7 @@ async function main() {
 
   // Announce
   await post(conns[JUDGE], JUDGE, 'phase',
-    `Debate: "${topic}" — opening statements, interim verdict, rebuttals, final verdict. Begin.`);
+    `Debate: "${topic}" — opening statements → interim verdict → rebuttals → falsifiable claims → final verdict. Judged on: clarity of position, strength of evidence, quality of rebuttals. Best argument wins. Begin.`);
 
   // Step 3 — Round 1: Opening statements
   console.log('\nRound 1 — Openings...');
@@ -281,7 +293,19 @@ async function main() {
     process.stdout.write(' done\n');
   }
 
-  // Step 6 — Final verdict
+  // Step 6 — Round 3: Falsifiable claims
+  console.log('\nRound 3 — Falsifiable claims...');
+  await post(conns[JUDGE], JUDGE, 'phase', '── Round 3: Falsifiable Claims ──');
+
+  for (const agentId of agents) {
+    process.stdout.write(`  ${agentId}...`);
+    const message = generateFalsifiable(agentId, config.assignments[agentId], topic);
+    await post(conns[agentId], agentId, 'conversation', message);
+    transcript.push({ agent: agentId, message });
+    process.stdout.write(' done\n');
+  }
+
+  // Step 7 — Final verdict
   console.log('\nNando — final verdict...');
   await post(conns[JUDGE], JUDGE, 'phase', '── Nando: Final Verdict ──');
   const finalVerdict = generateVerdict(topic, transcript, true);
