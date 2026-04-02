@@ -102,11 +102,11 @@ find /tmp -maxdepth 1 -name 'consult-*-outcome.md' -mmin +120 -delete 2>/dev/nul
 
 | Requesting agent | May consult |
 |-----------------|-------------|
-| fc-implement | father-christmas-consult → jared-consult, stevey-consult |
-| jared-implement | jared-consult → fc-consult, stevey-consult |
-| stevey-implement | stevey-consult → jared-consult, fc-consult |
-| emily-implement | emily-implement → jared-consult, fc-consult |
-| pm-cory-implement | pm-cory-implement → fc-consult, jared-consult |
+| fc-implement | jared-consult, stevey-boy-choi-consult |
+| jared-implement | fc-consult, stevey-boy-choi-consult |
+| stevey-implement | jared-consult, fc-consult |
+| emily-implement | jared-consult, fc-consult |
+| pm-cory-implement | fc-consult, jared-consult |
 
 **2. Read or create pause file** — try `/tmp/consult-<uuid>-pause.md`. Retry 3× at 200ms intervals. If still missing after retries: write minimal skeleton from signal data (agent, consultation-id, status: pending, round: 1, paused-at: now, question-raised from signal).
 
