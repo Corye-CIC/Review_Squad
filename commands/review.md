@@ -26,9 +26,58 @@ $ARGUMENTS — Optional. Can be:
 - Empty: Reviews all uncommitted changes (staged + unstaged)
 - File paths: Reviews specific files (e.g., "src/auth.ts src/routes/api.ts")
 - Git ref: Reviews changes since a ref (e.g., "HEAD~3" or "main..HEAD")
+- `--skip-preflight`: Skip the Step 0 gate (use only when you have a justification)
+- `--pr <N>`: Explicitly bind this review to PR #N (enables branch-assertion check)
 </context>
 
 <process>
+
+## Step 0: Pre-Flight Gate
+
+Before spawning any reviewer agents, verify session context and validate the working tree. The review squad is expensive — do not invoke it on code that has not passed basic validation.
+
+### 0a. Session context verification
+Run in a single parallel Bash block:
+```bash
+pwd
+git branch --show-current
+git status -sb
+gh pr view --json number,title,headRefName 2>/dev/null || true
+```
+
+Output a one-line confirmation:
+`"Reviewing <branch> in <cwd>[ · PR #<N>: <title>]"`
+
+### 0b. Branch assertion (blocking)
+If $ARGUMENTS contains `--pr <N>` OR `gh pr view` returned a `headRefName`:
+- Compare `git branch --show-current` against the expected PR branch
+- If mismatch, STOP with:
+  `"Branch mismatch: currently on '<current>', PR #<N> expects '<expected>'. Switch branches or clarify intent before continuing."`
+- Do not spawn reviewers.
+
+### 0c. Validation gate (blocking unless --skip-preflight)
+If $ARGUMENTS contains `--skip-preflight`, skip this step but note in the final verdict that preflight was bypassed.
+
+Otherwise, if `package.json` exists in the working directory or any parent up to the repo root:
+- If it declares a `typecheck` script: run `pnpm typecheck 2>&1 | tail -40`
+- If it declares a `lint` script: run `pnpm lint 2>&1 | tail -40`
+
+If either returns a non-zero exit code, STOP with:
+```
+Pre-flight failed: [typecheck|lint] returned errors.
+
+First 10 lines of output:
+<first 10 lines>
+
+The review squad only reviews code that compiles and lints clean. Fix the errors and re-run /review.
+To override, re-run with --skip-preflight.
+```
+Do not spawn reviewers.
+
+### 0d. Test advisory (non-blocking)
+If `package.json` declares a `test` script AND any changed file is a source file likely covered by tests, emit a one-line advisory:
+`"Tests not run during pre-flight — run 'pnpm test' after review if changes affect test coverage."`
+Continue to Step 1.
 
 ## Step 1: Determine files to review
 
@@ -248,6 +297,15 @@ Address Emily's challenges or acknowledge them, then proceed.
 
 Fix the items above, then re-run: /review
 ```
+
+**Auto-handoff on REVISE or BLOCK:**
+After presenting a REVISE or BLOCK verdict, if ANY of the following are true, invoke `/handoff "<branch-name> — review REVISE"` before returning control to the user:
+- Session has already burned significant context (subjective self-assessment — if in doubt, write the handoff)
+- Nando's verdict includes 3 or more BLOCKER or MUST-FIX items
+- Emily's verdict is CHALLENGE in addition to Nando REVISE
+- Any blocker references a file not yet opened in this session (high cost to resume without a handoff)
+
+This prevents the recurring pattern where context exhaustion hits between a REVISE verdict and the next session, forcing the user to reconstruct context from scratch. The squad itself captures the blocker list while it is still fresh.
 
 **If Nando BLOCK:**
 ```

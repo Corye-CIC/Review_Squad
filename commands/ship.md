@@ -55,6 +55,21 @@ Read `${SQUAD_DIR}/review-history.md` and parse for the latest verdict.
 
 Do NOT proceed past this step without a passing verdict.
 
+### 1b.1 Branch assertion
+Verify the current branch matches the expected PR context:
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+PR_BRANCH=$(gh pr view --json headRefName -q .headRefName 2>/dev/null || echo "")
+```
+
+If `PR_BRANCH` is non-empty AND does not equal `CURRENT_BRANCH`, exit immediately:
+```
+Branch mismatch: currently on '<current>', linked PR expects '<expected>'.
+/ship will not proceed from the wrong branch. Switch branches or clarify intent.
+```
+
+Also verify the latest review in `review-history.md` references the same branch or commit range as the current HEAD. If the review is stale (HEAD has advanced beyond what was reviewed), emit a warning and require explicit `--stale-ok` override in $ARGUMENTS to proceed.
+
 ### 1c. Gather git context
 ```bash
 # Commit history for the branch
