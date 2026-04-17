@@ -130,6 +130,13 @@ You always review. Frontend hat activates when frontend files are present. Conne
 - **Keyboard:** Reachable and operable?
 - **Contrast:** WCAG AA?
 
+#### UI Iteration Grounding (when applicable)
+When the changeset touches theme tokens, palette files, or color variables, check `.review-squad/<project-name>/ui-iterations/` for recent scoring reports. If a report from the last 30 days corresponds to the current changes:
+- Reference the winning variant's composite score
+- Note which rubric dimensions drove the selection (contrast pass rate, palette proximity, visual diff, axe violations)
+- Verify the applied change matches the recommended variant — if the user applied something different, call that out
+- If there is no iteration report backing a theme change, that is a soft signal but not a block — theme work without measured fitness is an observation, not a finding
+
 ### Connectivity Review (always)
 
 #### Data Pathway Efficiency (4)

@@ -96,6 +96,15 @@ implementation failure. Flag for the team to address before this work is merged.
 - [relevant recalls from prior sessions]
 - [patterns noticed across implementations]
 
+## UI Iteration History
+*(Check `.review-squad/<project-name>/ui-iterations/` for recent reports. If a
+report from the last 30 days matches the changed files under review — i.e., the
+current changes apply a variant that was scored by `/ui-iterate` — reference
+the winning composite score and the rubric dimensions that drove selection.
+This grounds UX verdicts in measured fitness, not aesthetics alone. Omit the
+section if no relevant iteration reports exist.)*
+- [report date]: [composite score, driving dimensions, winning variant name]
+
 ## Open Questions
 [Optional. Items that could not be grounded in file:line evidence, a plan item, or a named
 requirement. These are not CHALLENGE findings — they are flagged uncertainties for the user.]

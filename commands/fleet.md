@@ -323,6 +323,32 @@ for i in $(seq 1 $SHARDS); do
 done
 ```
 
+## Step 6.5: Auto-review merged state (squad integration)
+
+If ONE OR MORE shards were successfully merged into `$BASE_BRANCH` during Step 5, run the Review Squad on the merged diff before returning control to the user. Without this step, the user would have to manually remember to run `/review` before `/ship`, and the fleet's merged work would sit unreviewed.
+
+### 6.5a. Determine review scope
+```bash
+# Diff of everything merged by this fleet run vs the pre-fleet HEAD
+MERGED_COUNT=$(echo "${STATUS[@]}" | tr ' ' '\n' | grep -c 'DONE+MERGED')
+```
+
+If `MERGED_COUNT` is 0, skip this step and go straight to Step 7 — no merged work to review.
+
+### 6.5b. Invoke /review on the merged range
+If `MERGED_COUNT` > 0:
+- Determine the base commit: the commit that was HEAD before the first successful fleet merge
+- Invoke `/review <base>..HEAD` — scopes the review to fleet-merged commits only
+
+The review's own Step 0 pre-flight gate will run typecheck/lint on the merged state. If pre-flight fails, the review squad will surface that immediately (rather than silently shipping broken code from parallel shards).
+
+### 6.5c. Handle verdict
+The `/review` invocation returns one of:
+- **APPROVE + CONFIRM:** proceed to Step 7. Final report notes "review PASSED" and the user can go straight to `/ship`.
+- **REVISE / BLOCK:** the auto-handoff in `/review` already kicks in when context is constrained. In Step 7's report, surface that the fleet merged successfully BUT review found issues. User must address findings before `/ship`.
+
+Do NOT auto-revert fleet merges on REVISE — the merges represent real user-authored shard work (via squad implement agents). The user decides whether to fix-forward or revert.
+
 ## Step 7: Report
 
 Print a summary:
