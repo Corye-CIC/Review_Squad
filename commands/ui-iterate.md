@@ -32,6 +32,14 @@ $ARGUMENTS:
 - `--dry-run` — print the plan (variant strategy, scoring rubric, reference-screenshot source) without running iterations.
 </context>
 
+## Gotchas
+- **Theme file is reverted at the end.** The command doesn't apply the winner — it produces a report and reverts. To apply a winner, copy the palette diff from the #1 section of the report and edit the theme file manually, then commit.
+- **HMR must be working.** The 2–5s wait between variants assumes hot module reload picks up theme changes. If HMR is off (or the theme file isn't in the HMR graph), every variant measures the stale baseline. Pre-flight 0a checks dev server health, NOT HMR — verify manually if scores seem uniformly tied.
+- **First run bootstraps Playwright + axe-core.** If the project has neither, the command installs `@axe-core/playwright` and writes a spec template. This happens silently on first run — expect a ~30s installation delay on iteration 1.
+- **Composite weights are hardcoded (0.35 / 0.25 / 0.15 / 0.25).** If your project cares more about contrast than palette proximity, these bias incorrectly. Edit the weights at Step 2c in the template, or create a project-local override at `.review-squad/<project>/ui-fitness-weights.json`.
+- **Conflicts with /fleet.** Only one process can run dev services at a time. If a `/fleet` run is active, `/ui-iterate` will fail Step 0a's dev server check. Wait for fleet to complete or tear down first.
+- **Reference screenshot is captured from CURRENT state on first run.** If the current state is already the baseline you want to beat, that's fine. If you want to iterate toward a design mockup, pass `--reference <path>` with the target image explicitly.
+
 <process>
 
 ## Step 0: Pre-flight

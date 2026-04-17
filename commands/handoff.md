@@ -17,6 +17,13 @@ Capture current session state into `.claude/handoff.md` so a future session can 
 $ARGUMENTS — Optional. A short topic or feature name that becomes the handoff title. If empty, the title is derived from the last commit subject.
 </context>
 
+## Gotchas
+- **Rolling snapshot, not append.** Each run overwrites `.claude/handoff.md`. If you need to preserve a prior handoff, rename it (`mv .claude/handoff.md .claude/handoff-<topic>.md`) before running.
+- **cwd matters.** Writes to `.claude/handoff.md` in the current working directory. If you're in a worktree, the handoff goes into that worktree's `.claude/` — not the main worktree's.
+- **Silent section skips.** If `review-history.md` or the active plan don't exist, the corresponding sections are omitted without a warning. The absence in the handoff is the signal, not an error.
+- **Next action is load-bearing.** The command forces a concrete verb-leading instruction. If `/handoff` produces a vague "Next action" like "continue work", the session state wasn't clear enough — fix the context in the running session, then re-run.
+- **gitignore check only appends.** If `.gitignore` already has a pattern that covers `.claude/handoff.md`, the command doesn't add a duplicate. If gitignore is missing entirely, it creates one.
+
 <process>
 
 ## Step 1: Gather current state

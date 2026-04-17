@@ -1,7 +1,7 @@
 ---
 name: fleet
 description: Orchestrate a parallel worktree fleet — decompose a phased spec into shards, run each in an isolated worktree with its own DB, merge sequentially with validation
-argument-hint: "--spec <file.md> [--shards N (default 3, max 5)] [--base-branch main] [--branch-prefix fleet] [--dry-run]"
+argument-hint: "--spec <file.md> [--shards N (default 3, max 10)] [--base-branch main] [--branch-prefix fleet] [--dry-run]"
 allowed-tools:
   - Read
   - Write
@@ -21,7 +21,7 @@ Collapse multi-phase refactors from weeks to hours by running independent phase-
 <context>
 $ARGUMENTS:
 - `--spec <file.md>` — required. A phased markdown spec with one `## Phase N: <title>` header per independent shard. Each phase must be self-contained (no file dependencies on sibling phases). Example at end of this document.
-- `--shards N` — optional, default 3, max 5 (cap due to port-kill coordination)
+- `--shards N` — optional, default 3, max 10. Above 5 shards, verify Postgres can handle N+1 databases and the host has ~1GB free per worktree for node_modules. Community pattern (batch-with-worktrees) scales to 10–30 — pragmatic cap here is 10 to keep merge-chain validation tractable.
 - `--base-branch <name>` — optional, default: `git remote show origin | grep 'HEAD branch'`
 - `--branch-prefix <name>` — optional, default: `fleet` (worktree branches become `fleet-wt1`, `fleet-wt2`, etc.)
 - `--dry-run` — plan the decomposition, print shard assignments, do not create worktrees
@@ -30,6 +30,14 @@ Safety flags:
 - `--skip-db-isolation` — use the main DB for all worktrees (NOT recommended — kept for SQLite projects or single-DB setups)
 - `--keep-on-failure` — leave worktrees intact if merge/validation fails (for debugging)
 </context>
+
+## Gotchas
+- **Only ONE worktree can run dev services at a time.** Ports are NOT offset — each worktree uses the same port numbers. If a shard's phase requires a running service (e.g., integration tests hitting localhost:3000), the phase cannot run in parallel with other shards that also need services. Either declare the service-needing phases sequentially in the spec, or run them in separate fleet invocations.
+- **Isolated DB requires Postgres admin.** The psql `CREATE DATABASE` call runs as the user's default psql account. If that account lacks CREATEDB privilege, fleet aborts at Step 3. Verify with `psql -c "SELECT current_user, has_database_privilege(current_user, 'postgres', 'CREATE')"`.
+- **Phase independence is checked via Files: metadata, not content.** If a phase body mentions "also touches src/shared/util.ts" but Files: doesn't list it, the independence check passes. Spec accuracy matters — list every file a phase edits, even incidentally.
+- **Non-trivial merge conflicts STOP the chain.** Remaining shards stay unmerged in their worktrees. The main branch is left at the last successful merge. Resolve the conflict manually, commit, then re-run `/fleet --shards 1 --spec <remaining-phase.md>` OR do the remaining shards as normal work outside fleet.
+- **`git worktree remove --force` is destructive.** Intentional — fleet creates worktrees on fresh branches with no prior work. But if you manually committed unrelated work in a fleet worktree, teardown loses it. Use `--keep-on-failure` and inspect before re-running.
+- **Auto-review at Step 6.5 scopes to merged commits only.** It runs `/review <base>..HEAD`. Previous unreviewed commits on the branch are outside scope. If you want to review everything, run `/review` manually without the range after fleet completes.
 
 <process>
 

@@ -262,6 +262,43 @@ process.stdin.on('end', () => {
       process.exit(0);
     }
 
+    // ── Skip: Review Squad repo meta-work ──
+    // The squad shouldn't review changes to itself.
+    try {
+      const { execSync } = require('child_process');
+      const remoteUrl = execSync('git -C "' + cwd + '" remote get-url origin 2>/dev/null', {
+        encoding: 'utf-8', timeout: 1000, stdio: ['pipe', 'pipe', 'ignore']
+      }).trim();
+      if (/[\/:]Review_Squad(\.git)?$/i.test(remoteUrl)) {
+        process.exit(0);
+      }
+    } catch (e) { /* fail-open: not a git repo, or no remote, or timeout */ }
+
+    // ── Skip: all edits are within ~/.claude/ (personal Claude config) ──
+    const home = process.env.HOME || '';
+    if (home && state.editedFiles.length > 0 &&
+        state.editedFiles.every(f => f.startsWith(path.join(home, '.claude') + path.sep))) {
+      process.exit(0);
+    }
+
+    // ── Skip: all edits are docs-only ──
+    // Markdown in code paths (/commands/, /agents/, etc.) counts as code.
+    // Pure docs (README, CHANGELOG, /docs/, *.txt) get a pass.
+    const isDocsFile = (filePath) => {
+      const ext = path.extname(filePath).toLowerCase();
+      if (ext === '.txt') return true;
+      if (ext === '.md') {
+        const codePathPatterns = ['/commands/', '/agents/', '/skills/', '/hooks/',
+                                   '/src/', '/scripts/', '/templates/', '/project-rules/'];
+        if (codePathPatterns.some(p => filePath.includes(p))) return false;
+        return true;
+      }
+      return false;
+    };
+    if (state.editedFiles.length > 0 && state.editedFiles.every(isDocsFile)) {
+      process.exit(0);
+    }
+
     // ── Fire advisory ──
     state.lastFired = now;
     fs.writeFileSync(stateFile, JSON.stringify(state));

@@ -31,6 +31,14 @@ $ARGUMENTS — optional. Same as `/review` (file paths, git ref, `--pr <N>`, `--
 - `--dry-run` — classify findings and report what would be auto-fixed, but do not apply changes
 </context>
 
+## Gotchas
+- **Jared-flagged items are always surfaced, never auto-applied.** Even if a Jared finding is labeled MUST-FIX-SAFE by tier rules, the source-reviewer check forces it to MUST-FIX-RISKY. Do not remove that safeguard — it exists because "security-adjacent safe" is an oxymoron.
+- **Separate commit per iteration.** Do not rebase or squash between iterations until the loop completes. Each `chore(auto-fix): round N` commit is referenced in `review-history.md` — rewriting the commit invalidates the audit trail.
+- **Iteration 2+ does not re-prompt unless new items appear.** This is intentional — the first-iteration approval covers NITs that recur in iteration 2. If you want to stop mid-loop, interrupt via Ctrl+C; partial work remains committed, review-history shows the cut-off round.
+- **Revert mechanism only handles modifications.** `git checkout -- <file>` restores files from HEAD, which handles modified files. If a worker deleted a file (it shouldn't — constraints forbid it), the delete is also reverted. But if a worker created a new untracked file, Step 5.1's scope check catches it and uses `rm -f` to clean up.
+- **Agent pre-check substitutions persist only for the run.** If you pick replacements at Step 1.5, they apply to this invocation only. The next `/review-auto` re-runs the check from scratch. Install the standard agents via `/update-reviewsquad` for a permanent fix.
+- **Dry-run does not call `/review`.** It only runs the classifier on the existing review output. If you have no prior review in history, `--dry-run` after a fresh `/review` invocation requires the full flow first.
+
 <process>
 
 ## Step 1: Initial review
