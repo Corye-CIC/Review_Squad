@@ -26,6 +26,10 @@ Ship the current branch. This is the final command in the lifecycle: `/discuss` 
 <context>
 $ARGUMENTS -- Optional PR title or description. If empty, Emily infers a headline from commit history and changed file context.
 
+Flags:
+- `--skip-hygiene`: Bypass Step 1g commit hygiene validation (use only when you have a justification)
+- `--stale-ok`: Bypass the stale-review check in Step 1b.1 when HEAD has advanced beyond reviewed commits
+
 Derive project paths:
 ```bash
 PROJECT_NAME=$(basename "$(pwd)")
@@ -113,6 +117,56 @@ Continue shipping despite potential secrets? (yes/no)
 ```
 
 If the user says no, exit immediately. If yes, proceed. Do NOT continue without explicit user confirmation when secrets are detected.
+
+### 1g. Commit hygiene validation
+
+If the project references `@~/.claude/project-rules/commit-hygiene.md` in its CLAUDE.md, enforce those rules here as the last gate before PR creation. If the file is not referenced, skip this step silently.
+
+Run these checks:
+
+**Commit body line length (hard gate if opted in):**
+```bash
+# Find any commit body line longer than 72 chars since base branch
+git log ${BASE_BRANCH}..HEAD --format="%b" | awk 'length > 72 {print NR": "$0}'
+```
+If any long lines are found, STOP with:
+```
+Commit body lines exceed 72 characters. Pre-commit hook on many repos will reject these.
+Lines over limit:
+  <line number>: <excerpt>
+
+Options:
+1. Interactive rebase to rewrite the offending commit messages
+2. Squash via `git reset --soft ${BASE_BRANCH} && git commit` with wrapped message
+3. Override: re-run /ship with --skip-hygiene
+```
+
+**Prettier final pass (soft gate):**
+```bash
+# Verify all changed files pass prettier
+git diff ${BASE_BRANCH} --name-only | xargs pnpm prettier --check 2>&1 | tail -20
+```
+If any files fail prettier, emit a warning (not a block) and offer to auto-fix:
+```
+Prettier would reformat <n> file(s). Auto-fix now?
+```
+If yes, run `prettier --write`, re-stage, create an amend-style fix-up commit (not `--amend`, a new commit).
+
+**Stale imports scan (advisory only):**
+```bash
+# Files with removed exports (detected via git diff deletions of `export ` lines)
+git diff ${BASE_BRANCH} -- '*.ts' '*.tsx' '*.js' '*.jsx' | grep "^-export " | head -20
+```
+For each removed export name, grep the tree for surviving `import` references:
+```bash
+grep -rn "import.*\b<exported-name>\b" src/ --include="*.ts" --include="*.tsx"
+```
+If consumers exist but the export was removed, emit a WARNING listing them. Let the user decide — do not block.
+
+**Secret patterns check (cross-reference 1f):**
+This step is already covered by 1f, but re-run the scan if the user answered "yes" to 1f's prompt and modified any files since. Otherwise skip.
+
+**Fail-open default:** If `git log` or `git diff` errors out (e.g., shallow clone, detached HEAD), log the error and continue. Do not let hygiene validation itself block ship.
 
 
 ## Step 2: Phase 1 -- Parallel Content Generation
