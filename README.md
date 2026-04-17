@@ -2,6 +2,8 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+> **V4.2** — Lifecycle extensions driven by `/insights` friction analysis. **Five new commands:** `/handoff` (structured session-state snapshot; auto-invoked by `/review` on REVISE/BLOCK when context is constrained), `/review-auto` (closed-loop: `/review` → classify → auto-apply NIT + MUST-FIX-SAFE fixes via squad implement agents → re-review; iteration cap 2, hard safeguards on migrations/secrets/package.json/Jared-flagged items), `/fleet` (parallel worktree orchestration for phased refactors, max 10 shards, isolated per-worktree Postgres DB, sequential rebase-merge with typecheck/lint validation, auto-invokes `/review` on merged range), `/ui-iterate` (test-driven theme iteration with Playwright visual regression + axe-core fitness scoring), `/sync-upstream` (automates cp → commit → push for squad meta-work). **`/review` Step 0 pre-flight gate:** blocks squad dispatch on typecheck/lint failure, branch mismatch against linked PR, or working tree irregularities. **`/ship` additions:** Step 1b.1 branch assertion against linked PR, Step 1g commit hygiene validation (opt-in via `@~/.claude/project-rules/commit-hygiene.md`). **New `project-rules/` directory** ships opt-in per-project rules (`commit-hygiene.md`, `dev-environment.md`). **Hook skip behavior:** `review-squad-gate.js` now suppresses advisory on Review_Squad meta-work, `~/.claude/` edits, and pure-docs diffs. **Gotchas sections** added to all five new commands per Anthropic's internal data showing measurable accuracy gains. Emily and Stevey review agents now check `.review-squad/<project>/ui-iterations/` for recent fitness reports when theme changes are in the diff.
+>
 > **V4.1.4** — `/debate` voice discipline + 3-round structure: three classes of fixes from Review Squad transcript analysis. Class 1 (systemic): banned `"[Name] didn't just [verb]"` opener; rebuttal prompts now require agents engage a named peer first, then Nando — `"Nando called it X — but"` opener explicitly blocked. Class 2 (per-agent tics): voice profiles converted from descriptive prose to hard RULES with must-appear-once-per-turn constraints — Emily (`"Look"`, ≤6-word sentence, end on human/dollar, dash self-interrupt), FC (25-word sentence cap, landing closer), Jared (`"The problem is"`, parenthetical sardonic aside, cold open), PM Cory (`"Sure, X — but"`, `"Here's the thing"`, dash self-interrupt), Nando (first-name direct call-outs, every assessed agent named). Class 3 (structural): Round 3 added — each agent posts one falsifiable claim before final verdict; steelman required in opening prompts; judging criteria stated in Nando's opening announcement. — [Full changelog →](https://corye-cic.github.io/Review_Squad/changelogs/v4.1.4.html)
 >
 > **V4.1.3** — `/debate` orchestrator overhaul: 2-round structure (opening statements → Nando interim verdict → rebuttals → final verdict); Nando names the Round 1 leader and calls out weak arguments explicitly, then is free to reverse on strong rebuttals (`VERDICT CHANGED:` / `VERDICT STANDS:`); `spawnSync` replaces `execSync` (no shell, no injection); parallel agent connections via `Promise.all`; 10-second connect timeout with hard reject; `ws.once` prevents duplicate ack handlers; debate config written with `0o600` permissions; `post()` delay reduced from 900ms to 100ms; `POST /clear` HTTP endpoint clears server history at debate start so a browser refresh always shows a clean room; dashboard `history-cleared` lifecycle event now handled in UI. — [Full changelog →](https://corye-cic.github.io/Review_Squad/changelogs/v4.1.3.html)
@@ -54,12 +56,17 @@ The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 | `/plan` | Create a structured implementation plan | Emily (leads), PM Cory |
 | `/consult` | Design the approach — architecture, interfaces, scope division | FC, Jared, Stevey, PM Cory, Nando |
 | `/implement` | Parallel domain-specific coding guided by the Implementation Brief | FC, Jared, Stevey, Emily, PM Cory, Nando |
-| `/review` | Post-implementation code review across all specialties | All 6 agents |
-| `/ship` | Generate presentation, create PR, monitor CI, auto-fix failures | Emily, PM Cory, Nando |
+| `/review` | Post-implementation code review across all specialties (Step 0 pre-flight gates on typecheck/lint/branch; auto-invokes `/handoff` on REVISE/BLOCK when context constrained) | All 6 agents |
+| `/review-auto` | Closed-loop auto-fix: runs `/review`, classifies findings by tier + source reviewer, dispatches squad implement agents for NIT/MUST-FIX-SAFE fixes, re-reviews. Iteration cap 2. | FC, Jared, Stevey, PM Cory, Nando (review) + implement agents (fix) |
+| `/fleet` | Parallel worktree orchestration — decompose phased spec into shards (max 10), isolated per-worktree Postgres DB, sequential rebase-merge with validation, auto-review on merged range | FC, Jared, Stevey, Nando (implement mode, one per shard) |
+| `/ship` | Generate presentation, create PR, monitor CI, auto-fix failures (Step 1b.1 branch assertion + Step 1g commit hygiene) | Emily, PM Cory, Nando |
+| `/ui-iterate` | Test-driven theme iteration with Playwright visual regression + axe-core fitness scoring — generates N variants, scores composite (contrast / palette / visual diff / a11y), surfaces top 3 per round | Stevey (implement) |
+| `/handoff` | Structured session-state snapshot to `.claude/handoff.md` — branch, PR, last commit, review verdict, validation status, next action | — |
 | `/audit` | Deep security, architecture, and systems audit (whole codebase or subsystem) | FC (systems/DB), Jared (security/arch), Nando (synthesis) |
 | `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | Domain heuristics (auto-routed) or any combination |
 | `/create-agent` | Interactively build a custom agent via Q&A — 6 templates, preview before write | — |
-| `/update-reviewsquad` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, and hooks | — |
+| `/sync-upstream` | Automate squad meta-work sync from `~/.claude/` to the Review_Squad repo (cp → commit → push with auto account switching) | — |
+| `/update-reviewsquad` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, project-rules, and hooks | — |
 | `/debate` | Dynamic debate on any topic — agents auto-assigned positions, 3 rounds, Nando verdicts. Requires agent-chat server. | All 6 agents |
 | `/debate-false-positive` | Code review false positive stress test — structured 3-round debate with answer key scoring | FC, Jared, Stevey, PM Cory, Nando, Emily |
 | `/agent-chat:on` | Start the agent chat server (ports 4000 + 4001) as a background daemon | — |
@@ -558,23 +565,31 @@ agents/                            # Mode-specific agent files (25 files)
   stevey-boy-choi-consult.md       #   Stevey — consult mode
   stevey-boy-choi-implement.md     #   Stevey — implement mode
   stevey-boy-choi-review.md        #   Stevey — review mode
-commands/                          # Lifecycle commands (10) + utilities (2)
+commands/                          # Lifecycle commands + extensions + utilities
   discuss.md                       #   Problem exploration
   research.md                      #   Pattern and technology research
   plan.md                          #   Implementation planning
   consult.md                       #   Pre-implementation consultation
   implement.md                     #   Parallel agent implementation
-  review.md                        #   Full squad code review
-  ship.md                          #   Presentation, PR, CI monitoring
+  review.md                        #   Full squad code review (Step 0 pre-flight gate)
+  review-auto.md                   #   Closed-loop auto-fix via squad implement agents (V4.2)
+  ship.md                          #   Presentation, PR, CI monitoring (branch + hygiene gates)
+  fleet.md                         #   Parallel worktree orchestration (V4.2)
+  ui-iterate.md                    #   Test-driven theme iteration with fitness scoring (V4.2)
+  handoff.md                       #   Structured session-state snapshot (V4.2)
   audit.md                         #   Deep security, architecture, and systems audit
   quick.md                         #   Ad-hoc agent dispatch (supports custom agents)
   create-agent.md                  #   Interactive custom agent builder
+  sync-upstream.md                 #   Automate squad meta-work sync to upstream (V4.2)
   update-reviewsquad.md            #   Sync latest squad from GitHub via curl
   agent-chat/
     on.md                          #   Start the agent chat server as a background daemon
     off.md                         #   Stop the agent chat server
   debate.md                        #   Dynamic topic debate (any topic, auto-assigned positions)
   debate-false-positive.md         #   Code review false positive stress test
+project-rules/                     # Opt-in per-project rules (V4.2)
+  commit-hygiene.md                #   72-char body, prettier before stage, stale imports
+  dev-environment.md               #   Worktree + port + env var discipline
 hooks/
   review-squad-gate.js             # PostToolUse hook — review advisory at wrap-up points
   review-squad-context-monitor.js  # PostToolUse hook — context window WARNING/CRITICAL alerts
