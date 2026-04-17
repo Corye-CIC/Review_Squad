@@ -55,6 +55,9 @@ curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/agents" \
 curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands" \
   | python3 -c "import json,sys; [print('commands/'+f['name']) for f in json.load(sys.stdin) if f['type']=='file' and f['name'].endswith('.md')]"
 
+curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/project-rules" \
+  | python3 -c "import json,sys; [print('project-rules/'+f['name']) for f in json.load(sys.stdin) if f['type']=='file' and f['name'].endswith('.md')]"
+
 # Also list files in each commands subdirectory
 curl -sf "https://api.github.com/repos/Corye-CIC/Review_Squad/contents/commands" \
   | python3 -c "
@@ -89,6 +92,7 @@ for f in d.get('files', []):
     name = f['filename']
     if re.match(r'^agents/[^/]+\.md$', name): print(name)
     elif re.match(r'^commands/[^/]+(?:/[^/]+)?\.md$', name): print(name)
+    elif re.match(r'^project-rules/[^/]+\.md$', name): print(name)
     elif name in ('templates/ship-presentation.html', 'hooks/review-squad-gate.js', 'hooks/review-squad-context-monitor.js', 'hooks/review-squad-statusline.js'): print(name)
 "
 ```
@@ -111,7 +115,7 @@ for f in d.get('files', []):
     if f['status'] != 'removed':
         continue
     name = f['filename']
-    if re.match(r'^(agents|commands|templates|hooks)/', name): print(name)
+    if re.match(r'^(agents|commands|templates|hooks|project-rules)/', name): print(name)
 "
 ```
 
@@ -121,7 +125,7 @@ Store as `DELETED_FILES`.
 
 Ensure destination directories exist:
 ```bash
-mkdir -p ~/.claude/agents ~/.claude/commands ~/.claude/templates ~/.claude/hooks
+mkdir -p ~/.claude/agents ~/.claude/commands ~/.claude/templates ~/.claude/hooks ~/.claude/project-rules
 ```
 
 Raw base URL: `https://raw.githubusercontent.com/Corye-CIC/Review_Squad/main/`
@@ -132,6 +136,7 @@ For each file in `FILES_TO_SYNC`, download it to the matching destination. **For
 - `agents/NAME.md` → `~/.claude/agents/NAME.md`  *(skip if NAME starts with `custom-`)*
 - `commands/NAME.md` → `~/.claude/commands/NAME.md`
 - `commands/SUBDIR/NAME.md` → `~/.claude/commands/SUBDIR/NAME.md`  *(create `~/.claude/commands/SUBDIR/` if needed)*
+- `project-rules/NAME.md` → `~/.claude/project-rules/NAME.md`
 - `templates/ship-presentation.html` → `~/.claude/templates/ship-presentation.html`
 - `hooks/review-squad-gate.js` → `~/.claude/hooks/review-squad-gate.js`
 - `hooks/review-squad-context-monitor.js` → `~/.claude/hooks/review-squad-context-monitor.js`
@@ -186,7 +191,7 @@ Check: cat ~/.claude/settings.json | grep review-squad
 - [ ] Reads version from ~/.claude/review-squad-version; exits cleanly if already up to date
 - [ ] First run: downloads all tracked files via contents API (no prior version needed)
 - [ ] Incremental: uses compare API to download only added/modified tracked files
-- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), commands/*/*.md (one-level subdirs), templates/ship-presentation.html, hooks/review-squad-gate.js, hooks/review-squad-context-monitor.js, hooks/review-squad-statusline.js
+- [ ] Tracked paths: agents/*.md (flat), commands/*.md (flat), commands/*/*.md (one-level subdirs), project-rules/*.md (flat), templates/ship-presentation.html, hooks/review-squad-gate.js, hooks/review-squad-context-monitor.js, hooks/review-squad-statusline.js
 - [ ] Commands in subdirectories (e.g. commands/agent-chat/on.md) sync to ~/.claude/commands/SUBDIR/NAME.md — subdir created if needed
 - [ ] Never auto-deletes files from ~/.claude/ — deletions reported only
 - [ ] Never overwrites files in ~/.claude/agents/ whose basename starts with `custom-`
