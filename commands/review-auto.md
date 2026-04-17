@@ -40,6 +40,75 @@ Invoke `/review $ARGUMENTS` (without the `--max-iterations` and `--dry-run` flag
 Record the verdict. If the verdict is APPROVE + CONFIRM, exit with:
 `"Review passed on first pass. No auto-fix needed."`
 
+## Step 1.5: Verify squad implement agents (pre-flight)
+
+Before classification, verify that all expected squad implement agents are installed. If any are missing, prompt the user to pick replacements from installed agents.
+
+### 1.5a. Detect installed agents
+
+```bash
+AGENT_DIR="$HOME/.claude/agents"
+LOCAL_AGENT_DIR="$(pwd)/.claude/agents"
+
+# Expected squad implement agents
+EXPECTED=(father-christmas-implement jared-implement stevey-boy-choi-implement nando-implement)
+
+# Missing list
+MISSING=()
+for agent in "${EXPECTED[@]}"; do
+  if [ ! -f "$AGENT_DIR/$agent.md" ] && [ ! -f "$LOCAL_AGENT_DIR/$agent.md" ]; then
+    MISSING+=("$agent")
+  fi
+done
+
+# Full installed agent list (global + local, deduped)
+INSTALLED=$(
+  { ls "$AGENT_DIR"/*.md 2>/dev/null; ls "$LOCAL_AGENT_DIR"/*.md 2>/dev/null; } \
+  | xargs -I{} basename {} .md \
+  | sort -u
+)
+```
+
+### 1.5b. If nothing missing, continue
+
+If `MISSING` is empty, proceed directly to Step 2.
+
+### 1.5c. If agents missing, prompt for replacements
+
+For EACH missing agent, use `AskUserQuestion` with:
+- **Question:** `"{missing-agent} is not installed. Pick a replacement from installed agents, or 'skip' to surface all findings tagged to this agent as MUST-FIX-RISKY."`
+- **Options:** the full list of installed agents from 1.5a + a final `"skip"` option + a `"cancel"` option
+
+Store the response in an agent-substitution map:
+```
+AGENT_MAP[father-christmas-implement]=<user-chosen-replacement-or-skip>
+AGENT_MAP[jared-implement]=<...>
+...
+```
+
+If the user picks `"cancel"` at any prompt, exit:
+`"/review-auto cancelled: required squad agents missing and user declined substitution."`
+
+### 1.5d. Confirm mapping
+
+Before proceeding, show the user the full substitution summary:
+```
+Agent substitutions for this run:
+- father-christmas-implement → <chosen-agent or SKIP>
+- jared-implement            → <chosen-agent or SKIP>
+- stevey-boy-choi-implement  → <chosen-agent or SKIP>
+- nando-implement            → <chosen-agent or SKIP>
+```
+
+### 1.5e. Apply the map during dispatch
+
+When Step 4 dispatches workers, use AGENT_MAP to resolve the target agent name:
+- If `AGENT_MAP[<expected>]` is a real agent name, dispatch via that agent
+- If `AGENT_MAP[<expected>]` is `"skip"`, do NOT dispatch — instead reclassify all findings tagged to that source reviewer as MUST-FIX-RISKY for this round and surface them to the user
+- If `AGENT_MAP` has no entry (agent was installed), use the original expected name
+
+Record the substitutions in the review-history round entry (Step 6.5) so the audit trail shows the run used non-standard agents.
+
 ## Step 2: Classify findings (tier + source reviewer + implement agent)
 
 If verdict is REVISE or BLOCK, parse Nando's consolidated verdict and the individual agent outputs (FC, Jared, Stevey, PM Cory) into a list of findings. For each finding, record:
@@ -271,6 +340,7 @@ Append a round entry to `.review-squad/<project>/review-history.md`:
 **Items auto-applied:** {count} (NIT: X, MUST-FIX-SAFE: Y)
 **Items surfaced:** {count} MUST-FIX-RISKY, {count} BLOCKER
 **Workers dispatched:** {comma-separated implement agent list}
+**Agent substitutions (if any):** {expected → actual; "none" if all standard squad agents present}
 **Worker outcomes:**
 - father-christmas-implement: {n} SUCCESS, {m} MULTI-FILE, {k} NOT-FOUND
 - jared-implement: {n} SUCCESS, ...
@@ -344,9 +414,11 @@ Next action: review the remaining items, apply the fixes manually, then re-run /
 
 <success_criteria>
 - [ ] Initial /review run completed
+- [ ] Squad implement agents verified present; missing agents prompted for user-picked replacements or skip
+- [ ] Agent substitution map (if any) recorded in review-history round entry
 - [ ] Findings classified by tier AND by source reviewer AND mapped to target implement agent
 - [ ] Jared-flagged items never auto-applied (forced to MUST-FIX-RISKY)
-- [ ] Workers dispatched via squad implement agents (father-christmas-implement, jared-implement, stevey-boy-choi-implement, nando-implement) — not generic subagents
+- [ ] Workers dispatched via squad implement agents (or user-picked replacements) — not generic subagents
 - [ ] Worker prompts use the squad's injected-context + file-scope pattern
 - [ ] User confirmed before any auto-apply (unless dry-run)
 - [ ] Iteration 2+ re-prompts on new risky items or new file targets
