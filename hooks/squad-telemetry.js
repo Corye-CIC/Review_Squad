@@ -10,10 +10,13 @@
 //     "session_id": "<claude-session-id>",
 //     "project": "<basename of cwd>",
 //     "cwd": "<full cwd>",
-//     "event": "command-invoked" | "command-completed" | "verdict" | "auto-fix-round" | "fleet-shard-complete",
+//     "event": "command-invoked" | "command-completed" | "verdict" | "auto-fix-round" | "fleet-shard-complete" | "finding-overturned",
 //     "command": "/review" | "/review-auto" | "/fleet" | "/ui-iterate" | "/handoff" | "/ship" | ...,
 //     "detail": { ... event-specific fields ... }
 //   }
+//
+// finding-overturned detail schema (requires Nando emits the structured tag line):
+//   { overturned_reviewer: "<agent name>", finding_class: "<class label>", finding: "<brief>" }
 //
 // Events emitted from the PostToolUse lane (this hook):
 //   - command-invoked: detected via Bash tool calls matching `/review`, `/fleet`, etc.
@@ -83,7 +86,6 @@ function detectEvents(toolName, toolInput, toolOutput) {
   // since they run through the CLI. We detect command invocations indirectly by
   // looking at Agent tool calls which carry the subagent name in the prompt.
   if (toolName === 'Agent') {
-    const prompt = (toolInput.prompt || '') + ' ' + (toolInput.description || '');
     const subagent = toolInput.subagent_type || '';
 
     // Verdict detection from Agent outputs
@@ -104,6 +106,25 @@ function detectEvents(toolName, toolInput, toolOutput) {
         event: 'verdict',
         command: '/review',
         detail: { reviewer: 'emily', verdict: emilyVerdict[1].toUpperCase() }
+      });
+    }
+
+    // Finding overturned detection (Nando dismisses a reviewer's finding).
+    // Requires Nando's output to contain explicit tag lines in format:
+    //   - REVIEWER: <agent> | CLASS: <class> | FINDING: <brief>
+    // under a section header like "## Overturned Findings" or similar.
+    // If Nando's prompts don't emit this tag, no events fire (fail-open).
+    const overturnPattern = /^-\s*REVIEWER:\s*([^|]+?)\s*\|\s*CLASS:\s*([^|]+?)\s*\|\s*FINDING:\s*(.+?)\s*$/gm;
+    let overturnMatch;
+    while ((overturnMatch = overturnPattern.exec(toolOutput)) !== null) {
+      events.push({
+        event: 'finding-overturned',
+        command: '/review',
+        detail: {
+          overturned_reviewer: overturnMatch[1].trim(),
+          finding_class: overturnMatch[2].trim(),
+          finding: overturnMatch[3].trim().slice(0, 240)
+        }
       });
     }
 

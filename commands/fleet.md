@@ -350,6 +350,8 @@ If `MERGED_COUNT` > 0:
 
 The review's own Step 0 pre-flight gate will run typecheck/lint on the merged state. If pre-flight fails, the review squad will surface that immediately (rather than silently shipping broken code from parallel shards).
 
+For fleet runs merging large shard counts, `/review` Step 0.5 (classifier) and Step 3.6 (chunking) automatically apply — the merged range is classified and, if > 30 files, chunked before reviewer dispatch. No fleet-side handling needed; inherit the behavior from `/review`.
+
 ### 6.5c. Handle verdict
 The `/review` invocation returns one of:
 - **APPROVE + CONFIRM:** proceed to Step 7. Final report notes "review PASSED" and the user can go straight to `/ship`.

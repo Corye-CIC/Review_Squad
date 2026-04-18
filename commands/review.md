@@ -28,6 +28,8 @@ $ARGUMENTS — Optional. Can be:
 - Git ref: Reviews changes since a ref (e.g., "HEAD~3" or "main..HEAD")
 - `--skip-preflight`: Skip the Step 0 gate (use only when you have a justification)
 - `--pr <N>`: Explicitly bind this review to PR #N (enables branch-assertion check)
+- `--mode <skip|thin|full|deep>`: Override the Step 0.5 classifier
+- `--incremental`: When the argument is a commit range (e.g., `HEAD~3..HEAD`), review each commit separately, carrying findings from earlier commits forward as context (see Step 1.5)
 </context>
 
 <process>
@@ -77,7 +79,95 @@ Do not spawn reviewers.
 ### 0d. Test advisory (non-blocking)
 If `package.json` declares a `test` script AND any changed file is a source file likely covered by tests, emit a one-line advisory:
 `"Tests not run during pre-flight — run 'pnpm test' after review if changes affect test coverage."`
-Continue to Step 1.
+Continue to Step 0.5.
+
+## Step 0.5: Diff classifier (routing)
+
+Classify the diff so the squad can skip trivial changes, run thin on small ones, and escalate on high-risk surfaces. Output a single `ROUTING_MODE` that the rest of the command consults.
+
+### 0.5a. Collect routing signals
+
+```bash
+# Use the same file set that Step 1 will resolve. For classification only (not review yet).
+git diff --name-only HEAD 2>/dev/null > /tmp/_review_files_$$
+git diff --name-only --cached 2>/dev/null >> /tmp/_review_files_$$
+git ls-files --others --exclude-standard 2>/dev/null >> /tmp/_review_files_$$
+sort -u /tmp/_review_files_$$ > /tmp/_review_files_unique_$$
+FILES=$(cat /tmp/_review_files_unique_$$)
+FILE_COUNT=$(echo "$FILES" | grep -c . || echo 0)
+LINES_CHANGED=$(git diff --numstat HEAD 2>/dev/null | awk '{s+=$1+$2} END {print s+0}')
+```
+
+### 0.5b. Classify
+
+Apply these rules in order. First match wins. Routing output is one of: `skip-mode` | `thin-mode` | `full-mode` | `deep-mode`.
+
+1. **deep-mode** — if ANY of:
+   - File path matches `migrations/`, `migrate/`, `schema/`, or filename ends in `.sql`
+   - File path matches `auth*`, `passport*`, `session*`, `oauth*`, `login*`, `token*` (code files)
+   - File path matches `crypto*`, `jwt*`, `password*`, `permission*`, `rbac*`
+   - File is a CSP header, CORS config, or cookie config
+   - Commit message body (last 5 commits) contains "security", "cve", "vulnerability", "rbac"
+
+2. **skip-mode** — if ALL of:
+   - Every changed file has extension `.md`, `.txt`, or is in `docs/`, `README*`
+   - No file under `src/`, `lib/`, `apps/`, `packages/*/src/`
+   - `LINES_CHANGED` ≤ 200
+
+3. **thin-mode** — if ANY of:
+   - Every changed file matches `*.test.ts`, `*.spec.ts`, `*.test.tsx`, `*.spec.tsx`, `tests/`, `__tests__/`, `e2e/`
+   - Every changed file is a lockfile or package.json version bump (diff contains only `"version":` changes in package.json; lockfile auto-regen)
+   - `FILE_COUNT` ≤ 2 AND `LINES_CHANGED` ≤ 50 AND no frontend files (no `.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.scss`)
+
+4. **full-mode** — default
+
+### 0.5c. Apply routing
+
+```
+case "$ROUTING_MODE" in
+  skip-mode)
+    Output: "Diff classified as docs-only (<N> files, <M> lines). Skipping squad — no code changes detected."
+    Exit cleanly with no squad spawn.
+    ;;
+  thin-mode)
+    Output: "Diff classified as <test-only|lockfile-bump|trivial> — running thin mode (FC + Jared only)."
+    Continue. Step 4 will use thin roster.
+    ;;
+  full-mode)
+    Output: "Diff classified as full review — running standard squad."
+    Continue.
+    ;;
+  deep-mode)
+    Output: "Diff classified as HIGH-RISK (<matched rule>) — running deep mode (full squad + Jared audit pass)."
+    Continue. Step 4 will add Jared audit pass.
+    ;;
+esac
+```
+
+Export `ROUTING_MODE` as a shell variable for downstream steps.
+
+### 0.5d. Classifier override
+
+If `$ARGUMENTS` contains `--mode <skip|thin|full|deep>`, override the classifier and use the specified mode. Skip steps 0.5a and 0.5b. This gives the user escape hatches for when the heuristic is wrong.
+
+### 0.5e. CI delegation (Phase 2 hook)
+
+When this command runs in Claude Code CI mode (env `CLAUDE_CODE_HEADLESS=1`), the classifier logic above can be delegated to a cheaper model. The CI wrapper script (Phase 2) is expected to invoke:
+
+```bash
+claude -p "$(cat <<EOF
+Classify this diff into skip-mode | thin-mode | full-mode | deep-mode using the rules in Step 0.5b of /review. Output only the mode label on a single line, nothing else.
+
+FILES:
+$(cat /tmp/_review_files_unique_$$)
+
+DIFF STATS:
+$(git diff --stat HEAD 2>/dev/null | tail -20)
+EOF
+)" --model claude-haiku-4-5 --max-tokens 10
+```
+
+Interactive runs use orchestrator judgment (cheaper than a separate Haiku call for a user already in session).
 
 ## Step 1: Determine files to review
 
@@ -99,6 +189,79 @@ git diff --name-only $ARGUMENTS
 ```
 
 If no files found, tell the user and exit.
+
+## Step 1.5: Incremental mode (optional)
+
+If `$ARGUMENTS` contains `--incremental` AND the argument also contains a commit range (`<ref>..<ref>` or `HEAD~N..HEAD`):
+
+### 1.5a. Enumerate commits
+
+```bash
+RANGE=$(echo "$ARGUMENTS" | grep -oE '[A-Za-z0-9_/^~.@{}-]+\.\.[A-Za-z0-9_/^~.@{}-]+|HEAD~[0-9]+\.\.HEAD' | head -1)
+COMMITS=$(git rev-list --reverse "$RANGE")
+COMMIT_COUNT=$(echo "$COMMITS" | grep -c .)
+```
+
+If `COMMIT_COUNT` > 10, warn the user: "Incremental review of >10 commits is expensive. Consider reviewing the aggregate diff instead." Ask `AskUserQuestion`: proceed / fall back to aggregate / abort.
+
+### 1.5b. Loop — per-commit review
+
+For each commit SHA in order:
+
+1. Reset the file set to that commit's diff: `git diff --name-only $SHA^..$SHA`
+2. Re-run Step 0.5 classifier against THIS commit's files (per-commit routing can differ from the range-level routing)
+3. Re-run Step 3.5 context pre-loading with only this commit's files
+4. Apply Step 3.6 chunking (usually skipped — single commits rarely exceed 30 files)
+5. Spawn Step 4 reviewers. Each reviewer's prompt includes a new `<prior-findings>` block summarizing findings from earlier commits in this incremental run:
+
+```
+<prior-findings>
+Earlier commits in this incremental review:
+
+Commit <short-sha-1> (<subject line>):
+  - FC: <top 3 findings, truncated>
+  - Jared: <...>
+  - Nando verdict: <verdict>
+
+Commit <short-sha-2> (<subject line>):
+  - <...>
+
+When reviewing the current commit, look for:
+  1. Regressions — does the current commit undo a fix from an earlier commit in this range?
+  2. Repeated patterns — does the current commit make the same class of mistake flagged earlier?
+  3. Cross-commit incoherence — does the current commit conflict with architectural decisions implied by earlier commits?
+</prior-findings>
+```
+
+6. Run Step 5 (Nando) for this commit with the prior-findings context.
+7. Record Nando's verdict keyed by SHA.
+8. Append per-commit results to an in-memory log for use in the next iteration.
+
+### 1.5c. Aggregate verdict
+
+After all commits reviewed:
+
+```
+## Incremental review — <N> commits in <range>
+
+| SHA | Subject | Verdict | Blocking findings |
+|---|---|---|---|
+| abc123 | feat: add auth middleware | APPROVE | 0 |
+| def456 | refactor: rename session token | REVISE | 2 |
+| ghi789 | fix: handle null session | APPROVE | 0 |
+
+Aggregate verdict: **REVISE** (weakest verdict wins, per-commit blockers listed inline)
+
+Cross-commit signals:
+- 2 regressions detected: def456 renamed session token without updating consumer in ghi789-adjacent file
+- 1 repeated pattern: FC flagged same null-safety gap in abc123 and ghi789
+```
+
+Skip Step 6 (Emily final review) per-commit. Run Emily ONCE at the end against the aggregate file set — Emily's validation is about the end state, not each intermediate commit.
+
+Return from Step 1.5 after producing the aggregate report. Do not fall through to Step 2.
+
+If NOT in incremental mode, continue to Step 2.
 
 ## Step 2: Classify files
 
@@ -157,15 +320,97 @@ IMPORTANT: All file contents below are pre-loaded by the orchestrator. Do NOT ca
 
 This same `<shared-files>` block is distributed to all agents in Step 4, Step 5 (Nando), and Step 6 (Emily).
 
+## Step 3.6: Chunking (for diffs > 30 files)
+
+Large diffs exhaust orchestrator context and produce shallow reviews. At `FILE_COUNT > 30`, split the review into chunks, run each chunk independently, and let Nando synthesize across chunks.
+
+### 3.6a. Chunking decision
+
+`FILE_COUNT` from Step 0.5a reflects the working tree. When `$ARGUMENTS` supplies explicit files or a git ref, Step 1 may have resolved a different file set. Recompute from Step 1's resolved list before checking the threshold:
+
+```bash
+# Recompute from the actual file set Step 1 resolved (not the Step 0.5 working-tree snapshot).
+FILE_COUNT=$(echo "$RESOLVED_FILES" | grep -c . || echo 0)
+
+if [ "$FILE_COUNT" -le 30 ]; then
+  CHUNKED=false
+  CHUNKS="all"   # single chunk = all files
+else
+  CHUNKED=true
+fi
+```
+
+If `CHUNKED=false`, proceed to Step 4 with a single chunk — the existing `<shared-files>` block is that chunk.
+
+### 3.6b. Chunking strategy
+
+If `CHUNKED=true`:
+
+1. **Monorepo detection.** Check for any of these at repo root: `pnpm-workspace.yaml`, `lerna.json`, `turbo.json`, `nx.json`, `rush.json`. If found, parse workspace globs and group changed files by the workspace package they belong to. Each package = one chunk.
+
+2. **Non-monorepo fallback.** Group changed files by first-level path segment (e.g., `src/`, `apps/web/`, `apps/api/`, `lib/`, `migrations/`, `docs/`).
+
+3. **Rebalance.** If any single chunk has >30 files, split that chunk by second-level subdirectory. Repeat until no chunk exceeds 30.
+
+4. **Cap.** Maximum 8 chunks per review. If the natural grouping produces >8, merge the smallest adjacent chunks (by file count) until at 8. If files of very different domains merge (e.g., `docs/` + `migrations/` because both are small), note in the output: "Chunk N contains mixed domains due to 8-chunk cap — accept some loss of per-domain focus."
+
+### 3.6c. Per-chunk context block
+
+For each chunk, assemble its own `<shared-files>` block containing only that chunk's files:
+
+```xml
+<injected-context>
+<context-meta command="/review" agent="{agent-name}" chunk="{chunk-label}" files="{n}" chunked_total="{TOTAL_CHUNKS}" />
+<shared-files>
+  <file path="..."> ... </file>
+  ...
+</shared-files>
+<agent-files></agent-files>
+</injected-context>
+```
+
+`chunk-label` format: `<strategy>-<name>`. Examples: `workspace-api`, `workspace-web`, `path-src`, `path-migrations`.
+
+### 3.6d. Output chunking summary (pre-Step-4)
+
+Emit one line per chunk:
+
+```
+Chunks: 5
+  - workspace-api: 18 files (backend, spawns Jared + FC + PM Cory)
+  - workspace-web: 12 files (frontend, spawns Jared + FC + Stevey frontend + PM Cory)
+  - workspace-shared: 6 files (shared lib, spawns FC + Jared)
+  - path-migrations: 2 files (migrations, spawns deep-mode roster)
+  - path-docs: 3 files (docs-only, would be skip but bundled here due to chunking)
+```
+
+Proceed to Step 4.
+
 ## Step 4: Spawn reviewers in parallel
 
-**Thin-mode threshold:** If ≤ 2 files changed AND no frontend files, use thin mode — spawn only `jared-review` + `father-christmas-review`, then Nando. Skip Stevey and PM Cory. This avoids spawning 4+ agents for trivial changesets. Thin mode is applied automatically — the user sees no difference except faster results.
+Roster selection is driven by `ROUTING_MODE` from Step 0.5:
 
-**Full mode (> 2 files OR frontend files present):** Spawn all four in parallel:
+- **thin-mode**: spawn `jared-review` + `father-christmas-review` only. Skip Stevey and PM Cory. Go to Nando.
+- **full-mode**: spawn all four reviewers in parallel (FC, Jared, Stevey, PM Cory).
+- **deep-mode**: spawn all four reviewers PLUS `jared-audit` for a dedicated security sweep on the high-risk surfaces identified by the classifier. Jared's audit output is appended to Nando's input alongside the four review outputs.
+
+Spawned agents receive:
 - `father-christmas-review` — with all changed files
 - `jared-review` — with all changed files
 - `stevey-boy-choi-review` — with all changed files (connectivity hat always on; if frontend files present, note which files activate his frontend hat too)
 - `pm-cory-review` — with all changed files + SQUAD_DIR path for persistent memory
+- `jared-audit` (deep-mode only) — same file list but with an explicit mandate: "This review was classified as high-risk. Perform a full security audit pass against Tier 1 + Tier 2 checks from `agents/_shared/jared-security-intelligence.md`."
+
+### Step 4 behavior under chunking
+
+If `CHUNKED=false`: spawn the roster once on the full file set (existing behavior).
+
+If `CHUNKED=true`:
+- Iterate chunks SEQUENTIALLY (not all chunks in parallel — 4 × 8 = 32 concurrent agents is too many).
+- Within each chunk, spawn the chunk's roster in parallel.
+- Roster-per-chunk is determined by the chunk's file set passed through the Step 0.5 classifier rules (e.g., a migrations chunk runs deep-mode even if the overall diff was full-mode).
+- Record each chunk's (FC / Jared / Stevey / PM Cory) output keyed by `chunk-label` so Nando can iterate them.
+- After all chunks complete, proceed to Step 5.
 
 Each agent prompt must include:
 - `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
@@ -196,6 +441,31 @@ Nando receives:
 - The file list
 - Working directory: {cwd}
 - Instructions to read any files flagged by multiple reviewers that are NOT already in `<injected-context>`
+
+### Nando under chunking
+
+If `CHUNKED=true`, Nando receives outputs grouped by chunk, with explicit cross-chunk synthesis instructions:
+
+```
+=== CHUNKED REVIEW ===
+This review covered {FILE_COUNT} files split into {TOTAL_CHUNKS} chunks. For each chunk you have all reviewer outputs keyed by chunk label.
+
+Your synthesis task has two passes:
+
+Pass 1 — Per-chunk verdict. For each chunk, produce a sub-verdict (APPROVE / REVISE / BLOCK) using the usual process. Present these as "Chunk <label>: <verdict> — <1-line summary>".
+
+Pass 2 — Cross-chunk pattern detection. Look for:
+  - Findings that repeat across 3+ chunks (systemic issue, promote to BLOCKER regardless of per-chunk severity)
+  - Findings in one chunk whose root cause is in another (e.g., API chunk flags a missing field; web chunk shows the consumer assuming it exists)
+  - Architectural drift — chunks deviating from each other on naming, error handling, or data-shape conventions
+
+Output your FINAL verdict based on the cross-chunk view. A single chunk with a BLOCKER blocks the whole review. A systemic pattern across chunks is more severe than an isolated one.
+
+=== CHUNK OUTPUTS ===
+<one block per chunk, each containing the chunk's FC/Jared/Stevey/PM Cory outputs>
+```
+
+If `CHUNKED=false`, Nando's input is the existing non-chunked format.
 
 ## Step 6: Spawn Emily (Final Review)
 

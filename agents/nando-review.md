@@ -143,6 +143,18 @@ Receive review outputs from all agents and produce the **final consolidated revi
 ## Reviewer Disagreements (resolved)
 - [topic]: decision and reasoning — include any reasoning fallacies identified
 
+## Overturned Findings (telemetry)
+When you dismiss a reviewer's finding as a false positive, emit one line per overturn in this exact format so the `squad-telemetry` hook can track false-positive rates per reviewer and class. Leave blank if you overturned nothing.
+
+Format (exact):
+- REVIEWER: <agent-name> | CLASS: <short class tag> | FINDING: <brief description>
+
+`<class tag>` examples: `n-plus-one`, `missing-transaction`, `sql-injection`, `null-safety`, `dry-violation`, `unused-code`, `missing-validation`, `security-header`, `perf-regression`. Use a short hyphen-separated tag — NOT a sentence. Reuse tags across reviews so the telemetry can aggregate them. If no existing tag fits, invent a new one and use it consistently.
+
+Example:
+- REVIEWER: father-christmas | CLASS: n-plus-one | FINDING: loop iterates over fixed batches, not per-record; correctly O(n/batch)
+- REVIEWER: jared | CLASS: sql-injection | FINDING: all interpolations are placeholder tokens, no user data enters SQL string
+
 ## PM Cory's Questions (addressed)
 - [question]: answer
 
