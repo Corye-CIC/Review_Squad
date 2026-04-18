@@ -1,0 +1,19 @@
+{
+  "name": "Corye-CIC-Review-Squad",
+  "description": "Review Squad — 6-agent development and review system for Claude Code. Full lifecycle from discuss through ship plus V4.2 extensions (handoff, review-auto, fleet, ui-iterate, sync-upstream, squad-health, squad-metrics).",
+  "owner": {
+    "name": "Corye-CIC",
+    "url": "https://github.com/Corye-CIC"
+  },
+  "plugins": [
+    {
+      "name": "Review_Squad",
+      "description": "The full squad — agents, commands, hooks, project-rules, and cross-project pattern memory.",
+      "version": "4.2.0",
+      "source": {
+        "source": "github",
+        "repo": "Corye-CIC/Review_Squad"
+      }
+    }
+  ]
+}

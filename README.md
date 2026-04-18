@@ -66,7 +66,9 @@ The squad operates across 7 lifecycle commands plus ad-hoc shortcuts:
 | `/quick` | Ad-hoc agent dispatch — run one or more agents on a short task, no lifecycle required | Domain heuristics (auto-routed) or any combination |
 | `/create-agent` | Interactively build a custom agent via Q&A — 6 templates, preview before write | — |
 | `/sync-upstream` | Automate squad meta-work sync from `~/.claude/` to the Review_Squad repo (cp → commit → push with auto account switching) | — |
-| `/update-reviewsquad` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, project-rules, and hooks | — |
+| `/squad-health` | Audit squad installation integrity — agent files, commands, hooks, project-rules, hook wiring, version drift, gh auth | — |
+| `/squad-metrics` | Summarize squad usage from telemetry logs — commands invoked, verdicts, auto-fix rounds, fleet shards, per week/month | — |
+| `/update-reviewsquad` | Pull the latest Review Squad from GitHub and sync agents, commands, templates, project-rules, squad-patterns, and hooks | — |
 | `/debate` | Dynamic debate on any topic — agents auto-assigned positions, 3 rounds, Nando verdicts. Requires agent-chat server. | All 6 agents |
 | `/debate-false-positive` | Code review false positive stress test — structured 3-round debate with answer key scoring | FC, Jared, Stevey, PM Cory, Nando, Emily |
 | `/agent-chat:on` | Start the agent chat server (ports 4000 + 4001) as a background daemon | — |
@@ -477,7 +479,16 @@ Two PostToolUse hooks ship with the squad:
 - `gh` CLI (for `/ship` PR creation and CI monitoring)
 - `jq` (for the async watcher script)
 
-### Setup
+### Option A — Plugin install (V4.2+, recommended)
+
+```bash
+claude plugin add Corye-CIC-Review-Squad github:Corye-CIC/Review_Squad
+claude plugin install Review_Squad@Corye-CIC-Review-Squad
+```
+
+This installs all agents, commands, hooks, templates, project-rules, and squad-patterns automatically. After install, wire the four hooks into `~/.claude/settings.json` (see step 4 below) and run `/squad-health` to verify.
+
+### Option B — Manual setup (pre-V4.2 method)
 
 1. Copy agent definitions to your Claude config:
    ```bash
@@ -590,10 +601,19 @@ commands/                          # Lifecycle commands + extensions + utilities
 project-rules/                     # Opt-in per-project rules (V4.2)
   commit-hygiene.md                #   72-char body, prettier before stage, stale imports
   dev-environment.md               #   Worktree + port + env var discipline
+squad-patterns/                    # Cross-project pattern library (V4.2)
+  recurring-blockers.md            #   Blocker classes with plan/review-time checks (Tier A)
+  tooling-patterns.md              #   Agent-orchestration-specific patterns (Tier B)
+  verdict-trends.md                #   Verdict distribution by project type
+  auto-fix-patterns.md             #   /review-auto classification rules
+.claude-plugin/                    # Plugin manifest (V4.2)
+  plugin.json                      #   Plugin metadata + install destinations
+  marketplace.json                 #   Marketplace entry for plugin discovery
 hooks/
-  review-squad-gate.js             # PostToolUse hook — review advisory at wrap-up points
+  review-squad-gate.js             # PostToolUse hook — review advisory at wrap-up points (V4.2 skip logic)
   review-squad-context-monitor.js  # PostToolUse hook — context window WARNING/CRITICAL alerts
   review-squad-statusline.js       # statusLine hook — context bar + bridge file for monitor
+  squad-telemetry.js               # PostToolUse hook — squad usage telemetry → jsonl per project (V4.2)
 templates/
   ship-presentation.html           # Self-contained HTML reference template
 services/
