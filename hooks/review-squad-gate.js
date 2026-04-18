@@ -269,7 +269,7 @@ process.stdin.on('end', () => {
       const remoteUrl = execSync('git -C "' + cwd + '" remote get-url origin 2>/dev/null', {
         encoding: 'utf-8', timeout: 1000, stdio: ['pipe', 'pipe', 'ignore']
       }).trim();
-      if (/[\/:]Review_Squad(\.git)?$/i.test(remoteUrl)) {
+      if (/[\/:]Review_Squad(\.wiki)?(\.git)?$/i.test(remoteUrl)) {
         process.exit(0);
       }
     } catch (e) { /* fail-open: not a git repo, or no remote, or timeout */ }
