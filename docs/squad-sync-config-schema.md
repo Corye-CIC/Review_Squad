@@ -104,4 +104,14 @@ If `config.remote_url` differs from the URL returned by `git remote get-url squa
 
 ## Migration
 
-<!-- Migration section — to be added in Wave 4 -->
+### agent-notes file renaming
+
+Existing installs using the legacy `agent-notes/<agent-name>.md` naming require no manual migration. Each pm-cory agent reads the legacy filename as a fallback and renames the file to the new `agent-notes/<agent>-<user>.md` convention on its next write. No action required.
+
+### learnings.jsonl
+
+`source_user` is an additive optional field. Existing entries without it are valid and will continue to be read correctly. Agents must not require its presence. New entries written after `/squad-sync --init` is run will include `source_user` automatically.
+
+### V1 JSONL dedup limitation
+
+The union merge algorithm in `--pull` uses full-line string comparison. Two entries with identical semantic content but different JSON field ordering are treated as distinct and will both be retained. This is a known V1 limitation. V5.1 will add JSON parse + field-order normalization before dedup comparison.
