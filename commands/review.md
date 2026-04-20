@@ -30,6 +30,7 @@ $ARGUMENTS — Optional. Can be:
 - `--pr <N>`: Explicitly bind this review to PR #N (enables branch-assertion check)
 - `--mode <skip|thin|full|deep>`: Override the Step 0.5 classifier
 - `--incremental`: When the argument is a commit range (e.g., `HEAD~3..HEAD`), review each commit separately, carrying findings from earlier commits forward as context (see Step 1.5)
+- `--ci`: Headless mode. Suppress markdown narrative; emit a single `<squad-verdict-json>...</squad-verdict-json>` block per `docs/squad-json-schema.md`. Auto-enabled when `CLAUDE_CODE_HEADLESS=1` is set. In CI, classifier caps at thin-mode unless deep-mode triggers fire (aggressive pre-filter; overridable with `--mode`)
 </context>
 
 <process>
@@ -81,6 +82,19 @@ If `package.json` declares a `test` script AND any changed file is a source file
 `"Tests not run during pre-flight — run 'pnpm test' after review if changes affect test coverage."`
 Continue to Step 0.5.
 
+## Step 0.4: Headless-mode detection
+
+Set `CI_MODE=true` if `$ARGUMENTS` contains `--ci` OR the environment variable `CLAUDE_CODE_HEADLESS=1` is set. Otherwise `CI_MODE=false`.
+
+When `CI_MODE=true`:
+- Suppress all markdown narrative output from Steps 7-8. Steps still execute; their outputs are collected into memory for the final JSON emission in Step 7.5 (added below).
+- The classifier (Step 0.5) caps routing at `thin-mode` unless `deep-mode` triggers fire, unless the user passed an explicit `--mode` flag.
+- Errors from Step 0 (pre-flight failures) produce an `ABORTED` verdict JSON block instead of stopping with a user-facing message.
+
+### Unsupported flag combinations in CI
+
+- `--incremental + --ci` — the schema has no per-commit verdict structure. When both are set, the orchestrator prints a one-line warning (to stderr), then proceeds as if `--incremental` were not set — aggregate review over the range, single verdict JSON. Step 1.5 checks `CI_MODE` at entry and short-circuits back to Step 2 when true. This is intentional: per-commit review on a PR adds cost without a clean way to surface per-commit verdicts in the PR comment. If you need per-commit review, run `/review HEAD~N..HEAD --incremental` locally.
+
 ## Step 0.5: Diff classifier (routing)
 
 Classify the diff so the squad can skip trivial changes, run thin on small ones, and escalate on high-risk surfaces. Output a single `ROUTING_MODE` that the rest of the command consults.
@@ -88,14 +102,23 @@ Classify the diff so the squad can skip trivial changes, run thin on small ones,
 ### 0.5a. Collect routing signals
 
 ```bash
-# Use the same file set that Step 1 will resolve. For classification only (not review yet).
-git diff --name-only HEAD 2>/dev/null > /tmp/_review_files_$$
-git diff --name-only --cached 2>/dev/null >> /tmp/_review_files_$$
-git ls-files --others --exclude-standard 2>/dev/null >> /tmp/_review_files_$$
+# Use the same file set that Step 1 will resolve — and use the same CI/interactive
+# diff source. In CI the working tree is clean (checkout produces no diff vs HEAD),
+# so we must diff against the PR base branch; interactively we diff the working tree.
+if [ -n "${GITHUB_BASE_REF:-}" ] || echo "$ARGUMENTS" | grep -q -- '--pr '; then
+  BASE_REF="${GITHUB_BASE_REF:-main}"
+  git fetch origin "${BASE_REF}" 2>/dev/null || true
+  git diff --name-only "origin/${BASE_REF}..HEAD" 2>/dev/null > /tmp/_review_files_$$
+  LINES_CHANGED=$(git diff --numstat "origin/${BASE_REF}..HEAD" 2>/dev/null | awk '{s+=$1+$2} END {print s+0}')
+else
+  git diff --name-only HEAD 2>/dev/null > /tmp/_review_files_$$
+  git diff --name-only --cached 2>/dev/null >> /tmp/_review_files_$$
+  git ls-files --others --exclude-standard 2>/dev/null >> /tmp/_review_files_$$
+  LINES_CHANGED=$(git diff --numstat HEAD 2>/dev/null | awk '{s+=$1+$2} END {print s+0}')
+fi
 sort -u /tmp/_review_files_$$ > /tmp/_review_files_unique_$$
 FILES=$(cat /tmp/_review_files_unique_$$)
 FILE_COUNT=$(echo "$FILES" | grep -c . || echo 0)
-LINES_CHANGED=$(git diff --numstat HEAD 2>/dev/null | awk '{s+=$1+$2} END {print s+0}')
 ```
 
 ### 0.5b. Classify
@@ -150,9 +173,20 @@ Export `ROUTING_MODE` as a shell variable for downstream steps.
 
 If `$ARGUMENTS` contains `--mode <skip|thin|full|deep>`, override the classifier and use the specified mode. Skip steps 0.5a and 0.5b. This gives the user escape hatches for when the heuristic is wrong.
 
-### 0.5e. CI delegation (Phase 2 hook)
+### 0.5d.1. CI cap
 
-When this command runs in Claude Code CI mode (env `CLAUDE_CODE_HEADLESS=1`), the classifier logic above can be delegated to a cheaper model. The CI wrapper script (Phase 2) is expected to invoke:
+When `CI_MODE=true` AND no `--mode` override was provided:
+- If the classifier returned `full-mode`, DOWNGRADE to `thin-mode` (CI saves cost on routine diffs).
+- If the classifier returned `deep-mode`, KEEP `deep-mode` (security matters even in CI).
+- `skip-mode` and `thin-mode` pass through unchanged.
+
+Record `routing_override: "ci-cap"` in the emitted JSON when the cap fired. An explicit `--mode` flag disables the cap and is recorded as `routing_override: "user-mode"`.
+
+### 0.5e. Future CI cost optimization (not wired in Phase 2 V1)
+
+The Phase 2 V1 wrapper (`scripts/squad-pr-review.sh`) runs the full `/review --ci` in the primary model (default `claude-opus-4-7`) and lets the orchestrator classify inline. This is the simplest wiring.
+
+A future optimization — deferred to V5.1 — would pre-classify with `claude-haiku-4-5` before spawning the full review:
 
 ```bash
 claude -p "$(cat <<EOF
@@ -167,11 +201,19 @@ EOF
 )" --model claude-haiku-4-5 --max-tokens 10
 ```
 
-Interactive runs use orchestrator judgment (cheaper than a separate Haiku call for a user already in session).
+The wrapper would then call `/review --ci --mode <haiku-classified-mode>` to force the mode, saving opus tokens that would otherwise be spent re-classifying inline. Not worth the added complexity until telemetry shows opus classification cost is a meaningful slice of total CI cost.
 
 ## Step 1: Determine files to review
 
-**If $ARGUMENTS is empty:**
+**If $ARGUMENTS contains `--pr <N>` OR the environment has `GITHUB_BASE_REF` set** (CI path — the working tree is clean after `actions/checkout`, so working-tree diffs produce nothing):
+```bash
+# Diff the PR branch against the base branch, two-dot form (linear diff).
+BASE_REF="${GITHUB_BASE_REF:-main}"
+git fetch origin "${BASE_REF}" 2>/dev/null || true
+git diff --name-only "origin/${BASE_REF}..HEAD" 2>/dev/null
+```
+
+**Otherwise if $ARGUMENTS is empty** (interactive path):
 ```bash
 # All modified/added files (staged + unstaged + untracked)
 git diff --name-only HEAD 2>/dev/null
@@ -192,7 +234,9 @@ If no files found, tell the user and exit.
 
 ## Step 1.5: Incremental mode (optional)
 
-If `$ARGUMENTS` contains `--incremental` AND the argument also contains a commit range (`<ref>..<ref>` or `HEAD~N..HEAD`):
+If `CI_MODE=true`, SKIP this step unconditionally and return to Step 2 — the `--incremental + --ci` combo is unsupported (see Step 0.4). A one-line stderr warning was already printed there.
+
+Otherwise, if `$ARGUMENTS` contains `--incremental` AND the argument also contains a commit range (`<ref>..<ref>` or `HEAD~N..HEAD`):
 
 ### 1.5a. Enumerate commits
 
@@ -529,11 +573,25 @@ checks now based on the changed files and any available plan/criteria.
 If no plan/discussion/research exists, note this gap and provide a
 lighter-touch review focused on accessibility, UX intent, and
 feature-level validation of the changed code.
+
+CI MODE (CLAUDE_CODE_HEADLESS=1):
+In CI mode you operate without a dev server or browser. Skip all
+steps requiring runtime execution (Playwright, curl against localhost,
+axe-core against live DOM). Perform STATIC validation only:
+- Read test files in the diff; verify they match the plan's intent
+- Check plan adherence, research alignment, requirements coverage
+- Flag accessibility markup issues visible in JSX/HTML source
+- Report any skipped checks as emily.tests_run: false with a one-line
+  "ci-mode: <reason>" note, so the wrapper can surface the gap in the
+  PR comment. Do not emit CHALLENGE purely because tests were skipped
+  — CHALLENGE requires a static issue you can cite.
 ```
 
 Emily runs E2E tests, pressure tests features, checks plan adherence, research alignment, requirements coverage, accessibility compliance, and UX intent. Test failures are findings that factor into her CONFIRM or CHALLENGE verdict.
 
 ## Step 7: Present verdict
+
+When `CI_MODE=true`, skip the markdown branches below and jump to Step 7.5.
 
 Display Nando's consolidated review followed by Emily's final review.
 
@@ -586,6 +644,126 @@ This prevents the recurring pattern where context exhaustion hits between a REVI
 
 Resolve blockers before proceeding. Then re-run: /review
 ```
+
+## Step 7.5: CI JSON emission
+
+Executed ONLY when `CI_MODE=true`. Produces a single JSON block wrapped in sentinel tags, per `docs/squad-json-schema.md`. This is the final output to stdout — nothing may follow it.
+
+### 7.5a. Assemble the object
+
+Build a JSON object with every field from the v1 schema populated. Key derivations:
+
+```
+verdict = combineVerdicts(nando.verdict, emily?.verdict)
+  // APPROVE if Nando APPROVE + Emily CONFIRM (or Emily skipped in thin-mode)
+  // CONDITIONAL_APPROVE if Nando CONDITIONAL APPROVE with open blocked findings
+  // REVISE if Nando REVISE OR Emily CHALLENGE
+  // BLOCK if Nando BLOCK
+  // SKIPPED if Step 0.5 returned skip-mode, or Step 1 had no files
+  // ABORTED if any Step 0 gate failed or budget was exceeded
+
+routing_override =
+  "user-mode"  if --mode flag was set
+  "ci-cap"     if CI cap downgraded full-mode to thin-mode
+  null         otherwise
+
+emily = null when routing_mode == "skip-mode" OR verdict == "ABORTED"
+  // Emily runs in thin, full, and deep modes — she always follows Nando.
+  // Only a full skip or an aborted pre-flight omits her.
+```
+
+### 7.5a.1. Findings parsing rules (authoritative)
+
+The orchestrator parses Nando's consolidated review (Step 5 output) into the schema's `findings` object. Nando's review follows the section template defined in `agents/nando-review.md`:
+
+```
+## Blockers (must fix before testing)
+## Must Fix (before merge)
+## Recommended Improvements (should do)
+## Boyscout Fixes (pre-existing issues found)
+## Highlights (things done well)
+```
+
+Parsing contract:
+
+1. **Section to tier mapping:**
+   - `## Blockers (must fix before testing)` → `findings.blockers`
+   - `## Must Fix (before merge)` → `findings.must_fix`
+   - `## Recommended Improvements (should do)` → `findings.recommended`
+   - `## Boyscout Fixes (pre-existing issues found)` → `findings.boyscout`
+   - There is no "Nits" section in nando-review template today; `findings.nits` stays empty unless a future template adds it.
+
+2. **Per-finding extraction.** Each top-level bullet under a tier section is one finding. For each bullet:
+   - `title` — first line up to 80 chars (truncate at sentence boundary when possible)
+   - `detail` — full bullet text (leading `- ` stripped; sub-bullets joined with newlines)
+   - `file` + `line` — extracted via regex `([a-zA-Z0-9_./-]+):(\d+)` matching the first occurrence in the bullet. Null when not present.
+   - `raised_by` — `"nando"` by default (Nando's synthesis). If the bullet contains `"[FC]"`, `"[Jared]"`, `"[Stevey]"`, `"[PM Cory]"` citation, use that reviewer's canonical name.
+   - `class` — null unless the bullet text contains a recognizable tag from the overturn class vocabulary (`n-plus-one`, `null-safety`, `sql-injection`, etc.). Pattern recognition is best-effort; null is acceptable.
+   - `severity` — matches the tier name.
+   - `id` — assigned sequentially by the orchestrator within a run: `B1`, `B2`... for blockers, `M1`... for must-fix, `R1`... for recommended, `BS1`... for boyscout.
+
+3. **Parse warnings.** If a section heading is present but bullet extraction produces zero findings (Nando used free-form prose instead of bulleted items), record a parse warning in `metadata.parse_warnings` (array of strings) and emit an empty array for that tier. Never fabricate findings.
+
+4. **Schema v1 guarantee.** `findings.<tier>` is always an array (possibly empty). The consumer (CI wrapper, dashboard) can iterate without null checks.
+
+### 7.5a.2. Remaining fields
+
+```
+overturned_findings = parsed from Nando's "## Overturned Findings (telemetry)" block
+  // Same format contract as the squad-telemetry.js hook regex.
+  // Empty array when Nando overturned nothing.
+
+chunking.chunked = (CHUNKED == true)
+chunking.chunks = [{label, file_count, routing_mode, verdict}, ...]  when chunked
+chunking.strategy = "monorepo" | "path-segment" | null
+
+files_reviewed = Step 1's resolved file list
+metadata.cost_estimate_usd = sum(model_rate_per_mtok * tokens_used_per_agent)
+  // Use rough token estimate per routing mode when pre-estimating;
+  // use actual dispatch token counts when available post-hoc.
+metadata.parse_warnings = [] | ["Nando Blockers section had no bulleted items", ...]
+  // Only populated when parsing could not extract structured findings.
+```
+
+### 7.5b. ABORTED path
+
+When Step 0 pre-flight failed, Step 0.5 returned `skip-mode`, or Step 1 produced no files, the flow jumps directly here without spawning reviewers. Fill the envelope per the schema's SKIPPED / ABORTED shape:
+
+```json
+{
+  "schema_version": "1",
+  "verdict": "ABORTED",
+  "summary": "<one-line reason>",
+  "routing_mode": "<mode-or-null>",
+  ...
+  "reason": "<fixed enum value from schema>"
+}
+```
+
+`reason` uses the fixed enum in the schema doc (`classifier-skip-mode`, `no-files-changed`, `preflight-typecheck-failed`, `preflight-lint-failed`, `preflight-branch-mismatch`, `budget-exceeded`, `auth-missing`, `classifier-error`).
+
+### 7.5c. Emit
+
+Print the JSON object wrapped in sentinel tags as the LAST output to stdout. Nothing may follow:
+
+```
+<squad-verdict-json>
+{
+  "schema_version": "1",
+  "verdict": "APPROVE",
+  ...
+}
+</squad-verdict-json>
+```
+
+The wrapper script greps for the sentinel block; anything before it is log output, anything after is forbidden.
+
+### 7.5d. Exit code
+
+After emission, exit with the code from the schema's `verdict` → exit code mapping:
+- `APPROVE` / `CONDITIONAL_APPROVE` / `SKIPPED` → exit 0
+- `REVISE` / `BLOCK` → exit 1
+- `ABORTED` → exit 2
 
 ## Step 8: Mark review complete
 

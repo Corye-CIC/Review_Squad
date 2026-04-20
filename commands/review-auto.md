@@ -29,6 +29,8 @@ This is the closed-loop enhancement proposed in the insights report. It is delib
 $ARGUMENTS — optional. Same as `/review` (file paths, git ref, `--pr <N>`, `--skip-preflight`) plus:
 - `--max-iterations <N>` — cap the fix-review loop (default: 2, max: 3)
 - `--dry-run` — classify findings and report what would be auto-fixed, but do not apply changes
+- `--ci` — headless CI mode. Auto-enabled when `CLAUDE_CODE_HEADLESS=1` is set. Skips the initial `/review` call when `--from-verdict-json` is supplied; commits and pushes fixes (including `chore(auto-fix): round N` subject); emits a post-fix verdict JSON block per `docs/squad-json-schema.md` so the wrapper can post the updated verdict
+- `--from-verdict-json <path>` — CI mode only. Accepts a PATH to a JSON file containing a pre-computed verdict (from an earlier `/review --ci` run) and starts at classification (Step 2) instead of running a fresh `/review`. This is how the PR workflow avoids paying for two reviews when the first run already produced findings. The JSON is read from the file, not passed inline — shell arg length limits make inline JSON unreliable for large findings arrays.
 </context>
 
 ## Gotchas
@@ -41,12 +43,24 @@ $ARGUMENTS — optional. Same as `/review` (file paths, git ref, `--pr <N>`, `--
 
 <process>
 
-## Step 1: Initial review
+## Step 0: CI mode detection
 
-Invoke `/review $ARGUMENTS` (without the `--max-iterations` and `--dry-run` flags — strip those before passing through).
+If `$ARGUMENTS` contains `--ci` OR the env var `CLAUDE_CODE_HEADLESS=1` is set, set `CI_MODE=true`. Otherwise false.
+
+When `CI_MODE=true`:
+- Suppress all user-facing markdown narrative. Internal step outputs accumulate into memory for the final Step N JSON emission.
+- Skip all `AskUserQuestion` prompts; use conservative defaults (accept the proposed fix set only if every item is NIT or MUST-FIX-SAFE non-security; abort the auto-fix pass otherwise).
+- Push commits back to the PR branch on each completed iteration. Commit subject format: `chore(auto-fix): round N` — matches the existing telemetry hook's regex.
+- At the end, emit a single `<squad-verdict-json>...</squad-verdict-json>` block containing the POST-FIX verdict so the wrapper can update the PR comment.
+
+## Step 1: Initial review (skipped when --from-verdict-json is supplied)
+
+If `$ARGUMENTS` contains `--from-verdict-json <path>` (CI mode only): read the JSON file at that path, parse per `docs/squad-json-schema.md` (reject on `schema_version` mismatch), hydrate into the same in-memory structure the rest of the command expects, and skip to Step 2.
+
+Otherwise: invoke `/review $ARGUMENTS` — strip flags that `/review` does not accept (`--max-iterations`, `--dry-run`, `--from-verdict-json <path>`) before passing through. KEEP `--ci` when set — `/review` recognizes it since V5.0 Phase 2 and must run in CI mode here too so its verdict JSON can be consumed by Step 2 classification and Step 7.5 final emission.
 
 Record the verdict. If the verdict is APPROVE + CONFIRM, exit with:
-`"Review passed on first pass. No auto-fix needed."`
+`"Review passed on first pass. No auto-fix needed."` (or, in CI mode, emit the unchanged verdict JSON with `auto_fix_applied: false` and exit 0).
 
 ## Step 1.5: Verify squad implement agents (pre-flight)
 
@@ -177,6 +191,12 @@ Output a classification table:
 Display the classification table.
 
 If `--dry-run` was passed: stop here with `"Dry run complete. 0 fixes applied."`
+
+**CI mode (CI_MODE=true):**
+Skip both iteration branches below. Apply the conservative default:
+- If the auto-fixable list (NIT + MUST-FIX-SAFE) is non-empty AND NO finding has an UNSAFE class tag (`sql-injection`, `auth`, `secret`, `token`, `jwt`, `permission`, `rbac`, `crypto`, `password`, `csrf`, `xss`, `ssrf`) — proceed to Step 4 automatically. This matches the wrapper's pre-gate in `scripts/squad-pr-review.sh`.
+- If EVERY finding is MUST-FIX-RISKY or BLOCKER, abort the auto-fix pass. Emit the post-fix JSON with `auto_fix_applied: false` and a reason. The wrapper's review-and-fix branch handles this as "no safe fixes found, surfaced only."
+- Never prompt; never block on iteration-2 re-approval. Treat every iteration as pre-approved within the whitelist.
 
 **Iteration 1 (always prompt):**
 Use AskUserQuestion to confirm:
@@ -338,6 +358,29 @@ Squad context: .review-squad/${PROJECT_NAME}/review-history.md"
 
 Never force-push. Never amend. Create a new commit so the audit trail is clean.
 
+## Step 6.2: Push to remote (CI mode only)
+
+When `CI_MODE=true`, push the commit back to the PR branch so subsequent CI stages and re-triggers see the fix:
+
+```bash
+# The CI wrapper (.github/workflows/review-squad.yml) configures git identity
+# and checks out the PR BRANCH (ref, not sha) with fetch-depth:0. Prefer the
+# GitHub-provided branch name env var — falls back to `git branch --show-current`
+# for non-GitHub CI hosts.
+PR_BRANCH="${GITHUB_HEAD_REF:-$(git branch --show-current)}"
+if [ -z "$PR_BRANCH" ]; then
+  log "push aborted: could not resolve PR branch (detached HEAD with no GITHUB_HEAD_REF)"
+  # Emit push_error in Step 7.5 metadata; exit after Step 7.5 emission.
+  PUSH_ERROR="detached-head-no-branch"
+else
+  git push origin HEAD:"$PR_BRANCH"
+fi
+```
+
+If the push fails (stale branch after a concurrent human commit, or permissions issue in a fork PR), capture the error, emit the post-fix verdict with `metadata.push_error: "<first-line of git error>"`, and return exit code 2. The wrapper treats push failures as ABORTED and posts a follow-up comment noting the fix was computed but not pushed — the user can apply the diff manually.
+
+In interactive mode (CI_MODE=false), never push. The user decides when to push.
+
 ## Step 6.5: Log round to review-history.md (squad integration)
 
 Append a round entry to `.review-squad/<project>/review-history.md`:
@@ -378,9 +421,9 @@ Next time PM Cory participates in `/plan` or `/consult`, these patterns appear i
 
 ## Step 7: Re-review
 
-Invoke `/review $ARGUMENTS` again.
+Invoke `/review $ARGUMENTS` again WITH the same argument-stripping rules as Step 1: strip `--max-iterations`, `--dry-run`, `--from-verdict-json <path>` before passing through. KEEP `--ci` when set — the re-review must run in CI mode so it emits a JSON verdict the wrapper and Step 7.5 can consume. `--from-verdict-json` must never appear on a re-review; re-reviews always execute a fresh classification.
 
-Parse the new verdict.
+Parse the new verdict. When `CI_MODE=true`, extract the `<squad-verdict-json>...</squad-verdict-json>` block from `/review`'s stdout using the same Python regex extractor the wrapper uses (see `scripts/squad-pr-review.sh`). Validate `schema_version: "1"`. Preserve this parsed verdict object as the basis for Step 7.5's final emission — do not re-derive the verdict from prose.
 
 **If APPROVE + CONFIRM:**
 Report:
@@ -408,6 +451,47 @@ Remaining items (surfaced for human judgment):
 
 Next action: review the remaining items, apply the fixes manually, then re-run /review.
 ```
+
+## Step 7.5: CI JSON emission (CI_MODE only)
+
+When `CI_MODE=true`, emit a post-fix JSON block per `docs/squad-json-schema.md` v1 so the wrapper (`scripts/squad-pr-review.sh`) can post the updated PR comment.
+
+### Data sources for the emitted object
+
+- `verdict` / `summary` / `nando` / `emily` / `findings` / `files_reviewed` / `chunking` — take from the re-review's verdict JSON parsed in Step 7 when fixes were applied. When no fixes were applied (aborted-unsafe path or dry-run), carry forward the INPUT verdict JSON (either from `--from-verdict-json <path>` or from the Step 1 initial review).
+- `routing_mode` / `routing_override` — mirror whatever the most recent `/review --ci` run reported.
+- `auto_fix_*` keys (documented below) — computed locally by `/review-auto` from Steps 4-6 execution records.
+- `metadata.duration_seconds` — sum of initial review + each fix round + re-review durations.
+- `metadata.cost_estimate_usd` — sum of all `/review --ci` cost estimates this invocation made.
+- `metadata.push_error` — populated only if `auto_fix_status == "push-failed"` from Step 6.2.
+
+### Auto-fix augmentation
+
+```json
+{
+  ...standard schema fields from /review Step 7.5...
+  "auto_fix_applied": true,
+  "auto_fix_rounds": 2,
+  "auto_fix_items_applied": 7,
+  "auto_fix_items_skipped": 3,
+  "auto_fix_commits": ["abc1234", "def5678"],
+  "auto_fix_status": "success | cap-reached | aborted-unsafe | push-failed",
+  "metadata": {
+    ...standard metadata...
+    "push_error": null
+  }
+}
+```
+
+The `verdict`, `nando`, `emily`, `findings`, and `files_reviewed` fields reflect the POST-FIX state (Step 7's re-review). If the auto-fix aborted before any changes (every finding was MUST-FIX-RISKY / BLOCKER / unsafe class), `auto_fix_applied` is `false` and `findings` reflects the original unchanged verdict.
+
+Wrap the object in the same `<squad-verdict-json>...</squad-verdict-json>` sentinels the wrapper's Python extractor expects. Nothing may follow.
+
+Exit code after emission:
+- `auto_fix_status == success` → exit 0
+- `auto_fix_status == cap-reached` → exit 1 (re-review verdict still REVISE/BLOCK)
+- `auto_fix_status == aborted-unsafe` → exit 1 (no fixes applied; verdict unchanged)
+- `auto_fix_status == push-failed` → exit 2 (fixes computed but not pushed)
 
 ## Step 8: Safeguards (enforced throughout)
 
