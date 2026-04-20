@@ -51,7 +51,7 @@ CONFIG_FILE="$CONFIG_DIR/config.json"
 REMOTE_URL="$1"
 ```
 
-### Step 1 (BLOCKING): Verify .gitignore
+### Step 0 (BLOCKING): Verify .gitignore
 
 Check that `.review-squad/` is listed in `.gitignore`. If missing, append it.
 
@@ -220,11 +220,13 @@ fi
 For each file in `(learnings.jsonl, patterns.md, codebase-map.md, review-history.md)`:
 
 ```bash
+PUSHED_COUNT=0
 for f in "${SHARED_FILES[@]}"; do
   SRC=".review-squad/$PROJECT/$f"
   if [ -f "$SRC" ]; then
     cp "$SRC" "<squad-state-working-area>/$f"
     echo "[squad-sync]   $f — copied"
+    ((PUSHED_COUNT++))
   fi
 done
 ```
@@ -263,7 +265,7 @@ git -C "<squad-state-working-area>" push squad-state main
 ### Step 8: Summary
 
 ```
-[squad-sync] Summary: 4 files pushed, agent-notes/ skipped.
+[squad-sync] Summary: $PUSHED_COUNT files pushed, agent-notes/ skipped.
 ```
 
 ---
@@ -303,6 +305,7 @@ LOCAL_COUNT=0
 REMOTE_COUNT=0
 NEW_COUNT=0
 
+touch "$LOCAL_FILE" 2>/dev/null
 declare -A LOCAL_LINES
 while IFS= read -r line; do
   LOCAL_LINES["$line"]=1
@@ -387,7 +390,7 @@ elif [ "$AHEAD" -gt 0 ] && [ "$BEHIND" -eq 0 ]; then
 elif [ "$AHEAD" -eq 0 ] && [ "$BEHIND" -gt 0 ]; then
   SYNC_STATE="[behind $BEHIND commits]"
 else
-  SYNC_STATE="[diverged]"
+  SYNC_STATE="[diverged: +$AHEAD/-$BEHIND]"
 fi
 
 echo "[squad-sync] Project:    $PROJECT"
@@ -414,7 +417,7 @@ SHARED_FILES=(patterns.md codebase-map.md review-history.md)
 CONFLICT_COUNT=0
 for f in "${SHARED_FILES[@]}"; do
   FILE="$STATE_DIR/$f"
-  if grep -n '<<<<<<<\|=======\|>>>>>>>' "$FILE" 2>/dev/null | head -20; then
+  if grep -n '<<<<<<<\|=======\|>>>>>>>' "$FILE" 2>/dev/null; then
     echo "[squad-sync]   $f — conflicts at lines above"
     ((CONFLICT_COUNT++))
   fi
@@ -438,6 +441,7 @@ For each conflicted file, list the line numbers of `<<<<<<<`, `=======`, and `>>
 [squad-sync]   2. Find each block bounded by <<<<<<< ... ======= ... >>>>>>>.
 [squad-sync]   3. Keep the correct content, delete the markers and the discarded block.
 [squad-sync]   4. Save the file.
+[squad-sync]   4a. Stage: git add .review-squad/<project>/<file>
 [squad-sync] When resolved, run /squad-sync --push to publish.
 ```
 

@@ -40,7 +40,7 @@ You are the squad's institutional memory.
 - Per-user (local only, never synced): `agent-notes/<agent>-<user>.md`
 
 **Memory protocol:**
-- **Start of every invocation:** Read `codebase-map.md` + `patterns.md` in full. Read only the **last 20 lines** of `learnings.jsonl`. Read only the **last 3 entries** of `review-history.md`. Surface relevant learnings.
+- **Start of every invocation:** Read `codebase-map.md` + `patterns.md` in full. Read only the **last 20 lines** of `learnings.jsonl`. Read only the **last 3 entries** of `review-history.md`. Surface relevant learnings. ALSO check `~/.claude/squad-patterns/recurring-blockers.md` and `tooling-patterns.md`
 - **agent-notes fallback:** Try `agent-notes/<agent>-<user>.md` first. If not found, fall back to `agent-notes/<agent-name>.md` (legacy) and rename to new convention on next write.
 - **End of every invocation:** Update files with new learnings, map changes, history. Append, don't overwrite (except codebase-map.md).
 - **Deduplication:** Check before appending. Don't log the same thing twice.

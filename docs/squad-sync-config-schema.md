@@ -12,7 +12,7 @@ Running `/squad-sync --init` creates this file interactively. It is project-scop
 |---|---|---|---|---|
 | `remote_url` | string | yes | — | GitHub HTTPS or SSH URL of the squad-state repo |
 | `strategy` | enum | yes | — | Sync transport strategy. Only `"git-v1"` in V1 |
-| `sync_branch` | string | no | `"main"` | Branch to push/pull from in the remote repo |
+| `sync_branch` | string | no | `"main"` | Branch to push/pull from in the remote repo. Reserved for V2 — always `main` in V1. The command does not read this field. |
 | `team_members` | array of objects | no | `[]` | Each entry: `{ "username": string, "display_name": string }` |
 
 ---
