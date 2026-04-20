@@ -252,7 +252,7 @@ To apply the #1 variant:
 
 ## Step 5: Persist patterns to stevey's agent-notes
 
-Append to `.review-squad/<project>/agent-notes/stevey-boy-choi.md`:
+Append to `.review-squad/<project>/agent-notes/stevey-boy-choi-<user>.md` where `<user>` = `team_members[0].username` from `.review-squad/<project>/config.json`, defaulting to `local` if config absent:
 ```markdown
 ### UI iteration <date>
 - Baseline: <file snapshot hash>

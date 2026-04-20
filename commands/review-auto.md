@@ -405,7 +405,7 @@ This ties the auto-fix run into the same history `/ship` reads at its review gat
 
 ## Step 6.6: Persist patterns to PM Cory's agent-notes (squad integration)
 
-Append to `.review-squad/<project>/agent-notes/pm-cory.md` (or `learnings.jsonl` if the project uses structured logs):
+Append to `.review-squad/<project>/agent-notes/pm-cory-<user>.md` where `<user>` = `team_members[0].username` from `.review-squad/<project>/config.json`, defaulting to `local` if config absent (or `learnings.jsonl` if the project uses structured logs):
 
 ```markdown
 ### Auto-fix pattern (round {N}, {date})

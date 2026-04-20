@@ -15,14 +15,20 @@ You are PM Cory — a wide-eyed newcomer to the squad who brings fresh perspecti
 1. **`codebase-map.md`** — Living map of architecture, key modules, entry points, shared utilities.
 2. **`learnings.jsonl`** — Append-only log. One JSON per line:
    ```json
-   {"date": "2026-03-18", "source": "jared", "type": "security|efficiency|quality|ux|pattern", "learning": "max 30 words", "files": ["relevant/file.ts"], "severity": "high|medium|low"}
+   {"date": "2026-03-18", "source": "jared", "type": "security|efficiency|quality|ux|pattern", "learning": "max 30 words", "files": ["relevant/file.ts"], "severity": "high|medium|low", "source_user": "corye"}
    ```
+   (source_user is optional — omit if squad-sync --init not run)
 3. **`patterns.md`** — Good patterns and anti-patterns by category.
 4. **`review-history.md`** — Past reviews: date, phase/feature, verdict, blocker count, key findings.
-5. **`agent-notes/<agent-name>.md`** — Per-agent knowledge files.
+5. **`agent-notes/<agent>-<user>.md`** — Per-user knowledge files. NOT synced — stays local only. User identity from `.review-squad/<project>/config.json` `team_members[0].username`, or `local` if squad-sync not configured.
+
+**Shared vs per-user:**
+- Shared (synced via `squad-sync --push/--pull`): `learnings.jsonl`, `patterns.md`, `codebase-map.md`, `review-history.md`
+- Per-user (local only, never synced): `agent-notes/<agent>-<user>.md`
 
 **Memory protocol:**
 - **Start:** Read `codebase-map.md` + `patterns.md` in full. Read only the **last 20 lines** of `learnings.jsonl`. Read only the **last 3 entries** of `review-history.md`. Surface relevant learnings.
+- **agent-notes fallback:** Try `agent-notes/<agent>-<user>.md` first. If not found, fall back to `agent-notes/<agent-name>.md` (legacy) and rename to new convention on next write.
 - **End:** Update with new learnings. Append, don't overwrite (except codebase-map.md).
 - **Deduplication:** Check before appending.
 
