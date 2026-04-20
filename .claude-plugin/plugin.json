@@ -7,11 +7,8 @@
     "url": "https://github.com/Corye-CIC"
   },
   "homepage": "https://github.com/Corye-CIC/Review_Squad",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Corye-CIC/Review_Squad.git"
-  },
-  "license": "Private",
+  "repository": "https://github.com/Corye-CIC/Review_Squad",
+  "license": "SEE LICENSE IN LICENSE",
   "keywords": [
     "claude-code",
     "review",
@@ -20,39 +17,5 @@
     "code-quality",
     "security-review",
     "multi-agent"
-  ],
-  "components": {
-    "agents": "agents/",
-    "commands": "commands/",
-    "hooks": "hooks/",
-    "templates": "templates/",
-    "project-rules": "project-rules/",
-    "squad-patterns": "squad-patterns/"
-  },
-  "install": {
-    "destinations": {
-      "agents/*.md": "~/.claude/agents/",
-      "commands/*.md": "~/.claude/commands/",
-      "commands/*/*.md": "~/.claude/commands/",
-      "hooks/*.js": "~/.claude/hooks/",
-      "templates/*": "~/.claude/templates/",
-      "project-rules/*.md": "~/.claude/project-rules/",
-      "squad-patterns/*.md": "~/.claude/squad-patterns/"
-    },
-    "preserve": [
-      "~/.claude/agents/custom-*.md"
-    ],
-    "post-install": {
-      "description": "After install, add the four hooks to ~/.claude/settings.json PostToolUse array. See README Installation section.",
-      "hooks-to-wire": [
-        "review-squad-gate.js",
-        "review-squad-context-monitor.js",
-        "squad-telemetry.js"
-      ],
-      "statusline-to-wire": "review-squad-statusline.js"
-    }
-  },
-  "claude-code": {
-    "min-version": "1.0.0"
-  }
+  ]
 }
