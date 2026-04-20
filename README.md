@@ -493,11 +493,35 @@ Two PostToolUse hooks ship with the squad:
 ### Option A — Plugin install (V4.2+, recommended)
 
 ```bash
-claude plugin add Corye-CIC-Review-Squad github:Corye-CIC/Review_Squad
+claude plugin marketplace add Corye-CIC/Review_Squad
 claude plugin install Review_Squad@Corye-CIC-Review-Squad
 ```
 
-This installs all agents, commands, hooks, templates, project-rules, and squad-patterns automatically. After install, wire the four hooks into `~/.claude/settings.json` (see step 4 below) and run `/squad-health` to verify.
+Or, interactively inside Claude Code:
+
+```
+/plugin marketplace add Corye-CIC/Review_Squad
+/plugin install Review_Squad@Corye-CIC-Review-Squad
+```
+
+This installs all agents, commands, templates, project-rules, and squad-patterns, and auto-wires the three PostToolUse hooks (`review-squad-gate.js`, `review-squad-context-monitor.js`, `squad-telemetry.js`) via the plugin's `hooks/hooks.json`. No manual edits to `~/.claude/settings.json` are required — enabling the plugin turns the hooks on, disabling it turns them off.
+
+Toggle at any time:
+
+```bash
+claude plugin disable Review_Squad@Corye-CIC-Review-Squad
+claude plugin enable  Review_Squad@Corye-CIC-Review-Squad
+```
+
+**Optional — wire the statusline.** `review-squad-statusline.js` is shipped but can't be auto-wired by the plugin (Claude Code plugins can only set `subagentStatusLine`, not the main `statusLine`). To enable it, resolve the cache path and add it to your own `~/.claude/settings.json`:
+
+```bash
+PLUGIN_ROOT=$(ls -d ~/.claude/plugins/cache/Review_Squad*@Corye-CIC-Review-Squad/*/ | tail -n 1)
+# Add to ~/.claude/settings.json:
+# "statusLine": { "type": "command", "command": "node <PLUGIN_ROOT>hooks/review-squad-statusline.js" }
+```
+
+Run `/squad-health` to verify the install.
 
 ### Option B — Manual setup (pre-V4.2 method)
 
