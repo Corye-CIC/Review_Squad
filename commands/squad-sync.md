@@ -17,7 +17,7 @@ Synchronise shared Review Squad state — `learnings.jsonl`, `patterns.md`, `cod
 $ARGUMENTS:
 - `--init <remote-url>` — initialise sync for this project: validate URL, write config.json, create remote repo if needed, push initial state
 - `--push` — copy shared files to the squad-state remote and push
-- `--pull` — fetch remote state and merge: union dedup on learnings.jsonl, standard git merge on the rest
+- `--pull` — fetch remote state: union dedup on learnings.jsonl, remote-wins overwrite for the rest
 - `--status` — show remote, last push/pull timestamps, and ahead/behind state
 - `--merge` — scan for conflict markers and print resolution instructions
 
@@ -35,10 +35,11 @@ All output lines are prefixed `[squad-sync]`. Error format: `[squad-sync] ERROR:
 7. **PAT is env-only.** `$GITHUB_TOKEN`. Never prompt. Never store. Never log.
 8. **URL validation.** Reject credential-embedded URLs before writing to config or passing to git. Valid schemes: `https`, `git`, `git@`.
 9. **API timeout/retry.** GitHub API call: 10s timeout, single retry on 5xx.
-10. **Two-stage `--init` error distinction.** If repo creates but push fails: `Repository created but initial push failed. Run /squad-sync --push to retry.` Never say re-run `--init`.
+10. **`--push` is required after `--init`.** `--init` creates and registers the remote repo; it does not push state. Run `/squad-sync --push` immediately after `--init` to populate the remote.
 11. **All output prefixed `[squad-sync]`.** No exceptions. Error format: `[squad-sync] ERROR: <what failed> — <why>. <next action>.`
 12. **V1 dedup limitation.** Full-line string match only. JSON entries with identical content but different field order are treated as distinct entries.
 13. **`team_members[0].username` default.** If config.json absent or `team_members` empty, username = `local` everywhere.
+14. **`--pull` overwrites local edits (remote-wins).** For `patterns.md`, `codebase-map.md`, and `review-history.md`, `--pull` replaces the local file with the remote version. Local edits to these files are discarded without confirmation (logged). Commit or back up local changes before pulling.
 
 <process>
 
@@ -46,6 +47,14 @@ All output lines are prefixed `[squad-sync]`. Error format: `[squad-sync] ERROR:
 
 ```bash
 PROJECT=$(basename "$PWD")
+if ! [[ "$PROJECT" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "[squad-sync] ERROR: project directory name contains unsafe characters — rename to use only letters, digits, dots, underscores, or hyphens."
+  exit 1
+fi
+if [[ "$PROJECT" =~ ^\. ]]; then
+  echo "[squad-sync] ERROR: project directory name must not begin with a dot."
+  exit 1
+fi
 CONFIG_DIR=".review-squad/$PROJECT"
 CONFIG_FILE="$CONFIG_DIR/config.json"
 REMOTE_URL="$1"
@@ -57,7 +66,10 @@ Check that `.review-squad/` is listed in `.gitignore`. If missing, append it.
 
 ```bash
 if ! grep -qxF '.review-squad/' .gitignore 2>/dev/null; then
-  echo '.review-squad/' >> .gitignore
+  if ! echo '.review-squad/' >> .gitignore; then
+    echo "[squad-sync] ERROR: Cannot write to .gitignore — check file permissions. Resolve and re-run --init."
+    exit 1
+  fi
   echo "[squad-sync] Appended .review-squad/ to .gitignore."
 fi
 echo "[squad-sync] Verifying .gitignore... OK"
@@ -65,7 +77,7 @@ echo "[squad-sync] Verifying .gitignore... OK"
 
 Do not proceed to any later step until this check passes.
 
-### Step 2: Check GITHUB_TOKEN
+### Step 1: Check GITHUB_TOKEN
 
 ```bash
 if [ -z "$GITHUB_TOKEN" ]; then
@@ -74,22 +86,22 @@ if [ -z "$GITHUB_TOKEN" ]; then
 fi
 ```
 
-### Step 3: Validate remote URL
+### Step 2: Validate remote URL
 
 Reject any URL containing `user:pass@` (credential-embedded). Reject if scheme is not `https://`, `git://`, or `git@`.
 
 ```bash
-if echo "$REMOTE_URL" | grep -qP '://[^@]+:[^@]+@'; then
+if [[ "$REMOTE_URL" =~ ://[^/@]+:[^/@]+@ ]]; then
   echo "[squad-sync] ERROR: Credential-embedded URL rejected — remove user:pass from URL. Pass credentials via GITHUB_TOKEN only."
   exit 1
 fi
-if ! echo "$REMOTE_URL" | grep -qP '^(https://|git://|git@)'; then
+if ! [[ "$REMOTE_URL" =~ ^(https://|git://|git@) ]]; then
   echo "[squad-sync] ERROR: Invalid URL scheme — accepted schemes are https://, git://, git@. Provide a valid remote URL."
   exit 1
 fi
 ```
 
-### Step 4: Check existing config.json
+### Step 3: Check existing config.json
 
 **Case A — config.json exists and remote_url matches the argument:**
 
@@ -103,14 +115,20 @@ Exit.
 
 ```
 [squad-sync] Remote URL mismatch in existing config.
-  Old: <current remote_url>
-  New: <argument>
-Proceed? [y/N]
+[squad-sync]   Old: <current remote_url>
+[squad-sync]   New: <argument>
+[squad-sync] Proceed? [y/N]
 ```
 
 If `--yes` flag is present, skip the prompt and proceed. Otherwise wait for input. On `n` or any non-`y` answer, exit without changes.
 
-On confirmation, run: `git remote set-url squad-state <new-url>` and update `remote_url` in config.json.
+On confirmation:
+
+```bash
+git remote set-url squad-state "$REMOTE_URL"
+jq --arg url "$REMOTE_URL" '.remote_url = $url' "$CONFIG_FILE" > /tmp/squad_sync_config_tmp.json && mv /tmp/squad_sync_config_tmp.json "$CONFIG_FILE"
+echo "[squad-sync] Remote URL updated in git remote and config.json."
+```
 
 **Case C — config.json absent:**
 
@@ -118,46 +136,51 @@ Create directory and write config.json with all schema fields:
 
 ```bash
 mkdir -p "$CONFIG_DIR"
-cat > "$CONFIG_FILE" << EOF
-{
-  "remote_url": "$REMOTE_URL",
-  "strategy": "git-v1",
-  "sync_branch": "main",
-  "team_members": []
-}
-EOF
+jq -n --arg r "$REMOTE_URL" '{"remote_url":$r,"strategy":"git-v1","sync_branch":"main","team_members":[]}' > "$CONFIG_FILE"
 echo "[squad-sync] Config written to $CONFIG_FILE"
 ```
 
-### Step 5: Create remote repo if needed
+### Step 4: Create remote repo if needed
 
 If the remote repository does not exist, call the GitHub API to create `squad-state-<project>`.
 
 ```bash
 echo "[squad-sync] Calling GitHub API to create repository..."
-RESPONSE=$(curl --silent --max-time 10 \
-  -H "Authorization: token $GITHUB_TOKEN" \
+RESPONSE=$(curl --silent --max-time 10 -w "\n%{http_code}" \
+  --oauth2-bearer "$GITHUB_TOKEN" \
   -H "Accept: application/vnd.github+json" \
-  -d "{\"name\":\"squad-state-$PROJECT\",\"private\":true,\"auto_init\":true}" \
+  -d "{\"name\":\"squad-state-$PROJECT\",\"private\":true}" \
   https://api.github.com/user/repos)
 
-HTTP_STATUS=$(echo "$RESPONSE" | jq -r '.id // empty')
-if [ -z "$HTTP_STATUS" ]; then
-  # Retry once on any 5xx
-  RESPONSE=$(curl --silent --max-time 10 \
-    -H "Authorization: token $GITHUB_TOKEN" \
+HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+RESPONSE_BODY=$(echo "$RESPONSE" | head -n -1)
+
+if [[ "$HTTP_CODE" =~ ^5 ]]; then
+  # Retry once on 5xx only
+  RESPONSE=$(curl --silent --max-time 10 -w "\n%{http_code}" \
+    --oauth2-bearer "$GITHUB_TOKEN" \
     -H "Accept: application/vnd.github+json" \
-    -d "{\"name\":\"squad-state-$PROJECT\",\"private\":true,\"auto_init\":true}" \
+    -d "{\"name\":\"squad-state-$PROJECT\",\"private\":true}" \
     https://api.github.com/user/repos)
+  HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+  RESPONSE_BODY=$(echo "$RESPONSE" | head -n -1)
 fi
 
-REPO_URL=$(echo "$RESPONSE" | jq -r '.html_url // empty')
-if [ -n "$REPO_URL" ]; then
+if [ "$HTTP_CODE" = "201" ]; then
+  REPO_URL=$(echo "$RESPONSE_BODY" | jq -r '.html_url')
   echo "[squad-sync] Created: $REPO_URL"
+elif [ "$HTTP_CODE" = "422" ]; then
+  echo "[squad-sync] Repository already exists — proceeding."
+elif [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+  echo "[squad-sync] ERROR: GitHub API authentication failed (HTTP $HTTP_CODE) — check GITHUB_TOKEN. Re-run --init after fixing credentials."
+  exit 1
+else
+  echo "[squad-sync] ERROR: GitHub API returned HTTP $HTTP_CODE — check token permissions and try again."
+  exit 1
 fi
 ```
 
-### Step 6: Register git remote
+### Step 5: Register git remote
 
 ```bash
 if git remote get-url squad-state &>/dev/null; then
@@ -167,22 +190,10 @@ else
 fi
 ```
 
-### Step 7: Push initial state
-
-```bash
-git push squad-state main 2>&1
-if [ $? -ne 0 ]; then
-  echo "[squad-sync] ERROR: Repository created but initial push failed — push rejected by remote. Run /squad-sync --push to retry."
-  exit 1
-fi
-```
-
-Never instruct the user to re-run `--init` on a push failure.
-
-### Step 8: Done
+### Step 6: Done
 
 ```
-[squad-sync] Done. Squad state initialized.
+[squad-sync] Done. Run /squad-sync --push to sync your squad-state files.
 ```
 
 ---
@@ -191,6 +202,14 @@ Never instruct the user to re-run `--init` on a push failure.
 
 ```bash
 PROJECT=$(basename "$PWD")
+if ! [[ "$PROJECT" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "[squad-sync] ERROR: project directory name contains unsafe characters — rename to use only letters, digits, dots, underscores, or hyphens."
+  exit 1
+fi
+if [[ "$PROJECT" =~ ^\. ]]; then
+  echo "[squad-sync] ERROR: project directory name must not begin with a dot."
+  exit 1
+fi
 CONFIG_FILE=".review-squad/$PROJECT/config.json"
 SHARED_FILES=(learnings.jsonl patterns.md codebase-map.md review-history.md)
 ```
@@ -202,7 +221,19 @@ if [ ! -f "$CONFIG_FILE" ]; then
   echo "[squad-sync] ERROR: Cannot push — config.json not found. Run /squad-sync --init <remote-url> first."
   exit 1
 fi
-CONFIG_REMOTE=$(jq -r '.remote_url' "$CONFIG_FILE")
+CONFIG_REMOTE=$(jq -r '.remote_url // empty' "$CONFIG_FILE")
+if [ -z "$CONFIG_REMOTE" ]; then
+  echo "[squad-sync] ERROR: config.json is missing required field remote_url — re-run --init to repair."
+  exit 1
+fi
+if [[ "$CONFIG_REMOTE" =~ ://[^/@]+:[^/@]+@ ]]; then
+  echo "[squad-sync] ERROR: Credential-embedded URL in config.json — remove user:pass from remote_url. Update config.json manually or re-run --init."
+  exit 1
+fi
+if ! [[ "$CONFIG_REMOTE" =~ ^(https://|git://|git@) ]]; then
+  echo "[squad-sync] ERROR: Invalid URL scheme in config.json — accepted schemes are https://, git://, git@. Re-run --init to fix."
+  exit 1
+fi
 ```
 
 ### Step 2: Fork push safety check
@@ -211,6 +242,19 @@ CONFIG_REMOTE=$(jq -r '.remote_url' "$CONFIG_FILE")
 ACTUAL_REMOTE=$(git remote get-url squad-state 2>/dev/null)
 if [ "$CONFIG_REMOTE" != "$ACTUAL_REMOTE" ]; then
   echo "[squad-sync] ERROR: Remote URL mismatch. Expected $CONFIG_REMOTE, got $ACTUAL_REMOTE. Re-run squad-sync --init to fix."
+  exit 1
+fi
+```
+
+### Step 2.5: Clone squad-state repo into a temporary working area
+
+```bash
+SQUAD_STATE_DIR=$(mktemp -d)
+chmod 700 "$SQUAD_STATE_DIR"
+trap 'rm -rf "$SQUAD_STATE_DIR"' EXIT
+git clone --depth 1 "$CONFIG_REMOTE" "$SQUAD_STATE_DIR" 2>&1
+if [ $? -ne 0 ]; then
+  echo "[squad-sync] ERROR: Failed to clone $CONFIG_REMOTE — check remote URL and network access."
   exit 1
 fi
 ```
@@ -224,9 +268,9 @@ PUSHED_COUNT=0
 for f in "${SHARED_FILES[@]}"; do
   SRC=".review-squad/$PROJECT/$f"
   if [ -f "$SRC" ]; then
-    cp "$SRC" "<squad-state-working-area>/$f"
+    cp "$SRC" "$SQUAD_STATE_DIR/$f"
     echo "[squad-sync]   $f — copied"
-    ((PUSHED_COUNT++))
+    PUSHED_COUNT=$((PUSHED_COUNT + 1))
   fi
 done
 ```
@@ -243,7 +287,7 @@ Never stage, copy, or touch any file under `agent-notes/`.
 
 ```bash
 for f in "${SHARED_FILES[@]}"; do
-  git -C "<squad-state-working-area>" add "$f"
+  git -C "$SQUAD_STATE_DIR" add "$f"
 done
 ```
 
@@ -252,20 +296,25 @@ NEVER run `git add .` or `git add -A`.
 ### Step 6: Commit
 
 ```bash
+if git -C "$SQUAD_STATE_DIR" diff --cached --quiet; then
+  echo "[squad-sync] Nothing new to push — squad-state already up to date."
+  exit 0
+fi
 SYNC_DATE=$(date +%Y-%m-%d)
-git -C "<squad-state-working-area>" commit -m "chore(sync): push $PROJECT state $SYNC_DATE"
+git -C "$SQUAD_STATE_DIR" -c "user.name=squad-sync" -c "user.email=squad-sync@local" commit -m "chore(sync): push $PROJECT state $SYNC_DATE"
 ```
 
 ### Step 7: Push
 
 ```bash
-git -C "<squad-state-working-area>" push squad-state main
+git -C "$SQUAD_STATE_DIR" push origin main
 ```
 
 ### Step 8: Summary
 
-```
-[squad-sync] Summary: $PUSHED_COUNT files pushed, agent-notes/ skipped.
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ" > ".review-squad/$PROJECT/.last-push"
+echo "[squad-sync] Summary: $PUSHED_COUNT files pushed, agent-notes/ skipped."
 ```
 
 ---
@@ -274,6 +323,14 @@ git -C "<squad-state-working-area>" push squad-state main
 
 ```bash
 PROJECT=$(basename "$PWD")
+if ! [[ "$PROJECT" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "[squad-sync] ERROR: project directory name contains unsafe characters — rename to use only letters, digits, dots, underscores, or hyphens."
+  exit 1
+fi
+if [[ "$PROJECT" =~ ^\. ]]; then
+  echo "[squad-sync] ERROR: project directory name must not begin with a dot."
+  exit 1
+fi
 CONFIG_FILE=".review-squad/$PROJECT/config.json"
 STATE_DIR=".review-squad/$PROJECT"
 ```
@@ -285,12 +342,37 @@ if [ ! -f "$CONFIG_FILE" ]; then
   echo "[squad-sync] ERROR: Cannot pull — config.json not found. Run /squad-sync --init <remote-url> first."
   exit 1
 fi
+CONFIG_REMOTE=$(jq -r '.remote_url // empty' "$CONFIG_FILE")
+if [ -z "$CONFIG_REMOTE" ]; then
+  echo "[squad-sync] ERROR: config.json is missing required field remote_url — re-run --init to repair."
+  exit 1
+fi
+if [[ "$CONFIG_REMOTE" =~ ://[^/@]+:[^/@]+@ ]]; then
+  echo "[squad-sync] ERROR: Credential-embedded URL in config.json — remove user:pass from remote_url. Update config.json manually or re-run --init."
+  exit 1
+fi
+if ! [[ "$CONFIG_REMOTE" =~ ^(https://|git://|git@) ]]; then
+  echo "[squad-sync] ERROR: Invalid URL scheme in config.json — accepted schemes are https://, git://, git@. Re-run --init to fix."
+  exit 1
+fi
+ACTUAL_REMOTE=$(git remote get-url squad-state 2>/dev/null)
+if [ "$CONFIG_REMOTE" != "$ACTUAL_REMOTE" ]; then
+  echo "[squad-sync] ERROR: Remote URL mismatch. Expected $CONFIG_REMOTE, got $ACTUAL_REMOTE. Re-run squad-sync --init to fix."
+  exit 1
+fi
 ```
 
-### Step 2: Fetch remote
+### Step 2: Clone remote
 
 ```bash
-git fetch squad-state main
+PULL_WORK_DIR=$(mktemp -d)
+chmod 700 "$PULL_WORK_DIR"
+trap 'rm -rf "$PULL_WORK_DIR"' EXIT
+git clone --depth 1 "$CONFIG_REMOTE" "$PULL_WORK_DIR" 2>&1
+if [ $? -ne 0 ]; then
+  echo "[squad-sync] ERROR: Failed to clone $CONFIG_REMOTE — check remote URL and network access."
+  exit 1
+fi
 ```
 
 ### Step 3: Union merge learnings.jsonl
@@ -299,26 +381,33 @@ Do NOT run `git merge` on this file. Use the union dedup algorithm only.
 
 ```bash
 LOCAL_FILE="$STATE_DIR/learnings.jsonl"
-REMOTE_FILE=$(git show squad-state/main:learnings.jsonl 2>/dev/null)
+REMOTE_JSONL="$PULL_WORK_DIR/learnings.jsonl"
 
 LOCAL_COUNT=0
 REMOTE_COUNT=0
 NEW_COUNT=0
 
+mkdir -p "$STATE_DIR"
 touch "$LOCAL_FILE" 2>/dev/null
 declare -A LOCAL_LINES
 while IFS= read -r line; do
+  [ -z "$line" ] && continue
   LOCAL_LINES["$line"]=1
-  ((LOCAL_COUNT++))
+  LOCAL_COUNT=$((LOCAL_COUNT + 1))
 done < "$LOCAL_FILE"
 
-while IFS= read -r line; do
-  ((REMOTE_COUNT++))
-  if [ -z "${LOCAL_LINES[$line]+_}" ]; then
-    echo "$line" >> "$LOCAL_FILE"
-    ((NEW_COUNT++))
-  fi
-done <<< "$REMOTE_FILE"
+if [ ! -f "$REMOTE_JSONL" ]; then
+  echo "[squad-sync]   learnings.jsonl — not found on remote, skipping union merge"
+else
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    REMOTE_COUNT=$((REMOTE_COUNT + 1))
+    if [ -z "${LOCAL_LINES[$line]+_}" ]; then
+      echo "$line" >> "$LOCAL_FILE"
+      NEW_COUNT=$((NEW_COUNT + 1))
+    fi
+  done < "$REMOTE_JSONL"
+fi
 
 UNIQUE_COUNT=$((LOCAL_COUNT + NEW_COUNT))
 echo "[squad-sync]   learnings.jsonl — union merge: $LOCAL_COUNT local + $REMOTE_COUNT remote → $UNIQUE_COUNT unique entries"
@@ -326,34 +415,28 @@ echo "[squad-sync]   learnings.jsonl — union merge: $LOCAL_COUNT local + $REMO
 
 Dedup key = full line string. Field order differences create false duplicates — this is a known V1 limitation.
 
-### Step 4: Standard git merge for remaining files
+### Step 4: Overwrite local files (remote-wins)
 
 For each of `patterns.md`, `codebase-map.md`, `review-history.md`:
 
 ```bash
+PULLED_COUNT=0
 for f in patterns.md codebase-map.md review-history.md; do
-  git merge squad-state/main -- "$STATE_DIR/$f" 2>&1
-  if grep -q '<<<<<<<' "$STATE_DIR/$f" 2>/dev/null; then
-    echo "[squad-sync]   $f — conflict markers present"
-    HAS_CONFLICTS=true
+  if [ -f "$PULL_WORK_DIR/$f" ]; then
+    cp "$PULL_WORK_DIR/$f" "$STATE_DIR/$f"
+    echo "[squad-sync]   $f — replaced with remote (local overwritten)"
+    PULLED_COUNT=$((PULLED_COUNT + 1))
   else
-    echo "[squad-sync]   $f — merged clean"
+    echo "[squad-sync]   $f — not found on remote, skipping"
   fi
 done
 ```
 
 ### Step 5: Summary
 
-If any conflicts detected:
-
-```
-[squad-sync] Summary: N files pulled. M file(s) have conflicts. Run /squad-sync --merge to resolve.
-```
-
-If all clean:
-
-```
-[squad-sync] Summary: N files pulled. All clean.
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ" > "$STATE_DIR/.last-pull"
+echo "[squad-sync] Summary: $PULLED_COUNT files pulled. All clean."
 ```
 
 ---
@@ -362,6 +445,14 @@ If all clean:
 
 ```bash
 PROJECT=$(basename "$PWD")
+if ! [[ "$PROJECT" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "[squad-sync] ERROR: project directory name contains unsafe characters — rename to use only letters, digits, dots, underscores, or hyphens."
+  exit 1
+fi
+if [[ "$PROJECT" =~ ^\. ]]; then
+  echo "[squad-sync] ERROR: project directory name must not begin with a dot."
+  exit 1
+fi
 CONFIG_FILE=".review-squad/$PROJECT/config.json"
 ```
 
@@ -377,29 +468,34 @@ fi
 ### Step 2: Print status
 
 ```bash
-REMOTE_URL=$(jq -r '.remote_url' "$CONFIG_FILE")
-LAST_PUSH=$(git log squad-state/main --format="%ar" -1 2>/dev/null || echo "never")
+REMOTE_URL=$(jq -r '.remote_url // empty' "$CONFIG_FILE")
+if [ -z "$REMOTE_URL" ]; then
+  echo "[squad-sync] ERROR: config.json is missing required field remote_url — re-run --init to repair."
+  exit 1
+fi
+LAST_PUSH=$(cat ".review-squad/$PROJECT/.last-push" 2>/dev/null || echo "never")
+LAST_PULL=$(cat ".review-squad/$PROJECT/.last-pull" 2>/dev/null || echo "never")
 
-AHEAD=$(git rev-list --count squad-state/main..HEAD 2>/dev/null || echo 0)
-BEHIND=$(git rev-list --count HEAD..squad-state/main 2>/dev/null || echo 0)
+git fetch squad-state main --quiet 2>/dev/null || true
+REMOTE_HEAD=$(git ls-remote squad-state refs/heads/main 2>/dev/null | awk '{print $1}')
+LOCAL_HEAD=$(git rev-parse squad-state/main 2>/dev/null)
 
-if [ "$AHEAD" -eq 0 ] && [ "$BEHIND" -eq 0 ]; then
+if [ -z "$REMOTE_HEAD" ]; then
+  SYNC_STATE="[remote unreachable]"
+elif [ -z "$LOCAL_HEAD" ]; then
+  SYNC_STATE="[never synced — run --pull]"
+elif [ "$REMOTE_HEAD" = "$LOCAL_HEAD" ]; then
   SYNC_STATE="[synced]"
-elif [ "$AHEAD" -gt 0 ] && [ "$BEHIND" -eq 0 ]; then
-  SYNC_STATE="[ahead $AHEAD commits]"
-elif [ "$AHEAD" -eq 0 ] && [ "$BEHIND" -gt 0 ]; then
-  SYNC_STATE="[behind $BEHIND commits]"
 else
-  SYNC_STATE="[diverged: +$AHEAD/-$BEHIND]"
+  SYNC_STATE="[remote has changes — run --pull]"
 fi
 
 echo "[squad-sync] Project:    $PROJECT"
 echo "[squad-sync] Remote URL: $REMOTE_URL"
 echo "[squad-sync] Last push:  $LAST_PUSH"
+echo "[squad-sync] Last pull:  $LAST_PULL"
 echo "[squad-sync] Sync state: $SYNC_STATE"
 ```
-
-Last pull timestamp: derive from the local ref log for `squad-state/main`.
 
 ---
 
@@ -407,6 +503,14 @@ Last pull timestamp: derive from the local ref log for `squad-state/main`.
 
 ```bash
 PROJECT=$(basename "$PWD")
+if ! [[ "$PROJECT" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  echo "[squad-sync] ERROR: project directory name contains unsafe characters — rename to use only letters, digits, dots, underscores, or hyphens."
+  exit 1
+fi
+if [[ "$PROJECT" =~ ^\. ]]; then
+  echo "[squad-sync] ERROR: project directory name must not begin with a dot."
+  exit 1
+fi
 STATE_DIR=".review-squad/$PROJECT"
 SHARED_FILES=(patterns.md codebase-map.md review-history.md)
 ```
@@ -415,11 +519,13 @@ SHARED_FILES=(patterns.md codebase-map.md review-history.md)
 
 ```bash
 CONFLICT_COUNT=0
+CONFLICT_FILES=()
 for f in "${SHARED_FILES[@]}"; do
   FILE="$STATE_DIR/$f"
   if grep -n '<<<<<<<\|=======\|>>>>>>>' "$FILE" 2>/dev/null; then
     echo "[squad-sync]   $f — conflicts at lines above"
     ((CONFLICT_COUNT++))
+    CONFLICT_FILES+=("$f")
   fi
 done
 
@@ -435,14 +541,16 @@ For each conflicted file, list the line numbers of `<<<<<<<`, `=======`, and `>>
 
 ### Step 3: Resolution instructions
 
-```
-[squad-sync] To resolve:
-[squad-sync]   1. Open the conflicted file(s) listed above.
-[squad-sync]   2. Find each block bounded by <<<<<<< ... ======= ... >>>>>>>.
-[squad-sync]   3. Keep the correct content, delete the markers and the discarded block.
-[squad-sync]   4. Save the file.
-[squad-sync]   4a. Stage: git add .review-squad/<project>/<file>
-[squad-sync] When resolved, run /squad-sync --push to publish.
+```bash
+echo "[squad-sync] To resolve:"
+echo "[squad-sync]   1. Open the conflicted file(s) listed above."
+echo "[squad-sync]   2. Find each block bounded by <<<<<<< ... ======= ... >>>>>>>."
+echo "[squad-sync]   3. Keep the correct content, delete the markers and the discarded block."
+echo "[squad-sync]   4. Save the file."
+for cf in "${CONFLICT_FILES[@]}"; do
+  echo "[squad-sync]   5. Stage: git add $STATE_DIR/$cf"
+done
+echo "[squad-sync] When resolved, run /squad-sync --push to publish."
 ```
 
 </process>
@@ -452,15 +560,13 @@ For each conflicted file, list the line numbers of `<<<<<<<`, `=======`, and `>>
 - [ ] `--init` rejects credential-embedded URLs and invalid schemes before touching config or git
 - [ ] `--init` is idempotent: same URL exits silently; different URL requires confirmation
 - [ ] `--init` creates config.json with all four schema fields: remote_url, strategy, sync_branch, team_members
-- [ ] `--init` calls GitHub API with 10s timeout and single 5xx retry
-- [ ] `--init` distinguishes repo-created-but-push-failed from other errors; never says re-run --init
+- [ ] `--init` calls GitHub API with 10s timeout and single 5xx retry; on success, instructs user to run --push
 - [ ] `--push` aborts on remote URL mismatch before any git operation
 - [ ] `--push` stages only named files; never git add . or git add -A
 - [ ] `--push` skips agent-notes/ and prints the skip line
 - [ ] `--push` commit message follows: `chore(sync): push <project> state <YYYY-MM-DD>`
 - [ ] `--pull` runs union dedup on learnings.jsonl — never git merge on that file
-- [ ] `--pull` reports per-file merge outcome: clean or conflict markers present
-- [ ] `--pull` summary directs to --merge when conflicts exist
+- [ ] `--pull` reports per-file outcome; all files replaced without conflict under remote-wins policy
 - [ ] `--status` reports project, remote URL, last push time, and sync state in one of four states
 - [ ] `--merge` scans patterns.md, codebase-map.md, review-history.md for conflict markers with line numbers
 - [ ] Every output line prefixed [squad-sync]; errors follow ERROR: <what> — <why>. <action>. format

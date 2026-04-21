@@ -16,4 +16,3 @@
 node_modules/
 services/*/node_modules/
 services/chat-bridge/dist/
-.review-squad/
