@@ -64,6 +64,7 @@ process.stdin.on('end', () => {
 
     const ts = new Date().toISOString();
     const lines = events.map(ev => JSON.stringify({
+      schema_version: '1',
       ts,
       session_id: sessionId,
       project: projectName,
@@ -93,10 +94,12 @@ function detectEvents(toolName, toolInput, toolOutput) {
       || toolOutput.match(/Final Verdict:\s*(APPROVE|REVISE|BLOCK)/i)
       || toolOutput.match(/Nando['']?s? Verdict:\s*(APPROVE|CONDITIONAL APPROVE|REVISE|BLOCK)/i);
     if (nandoVerdict) {
+      let rawVerdict = nandoVerdict[1].toUpperCase();
+      if (rawVerdict === 'APPROVED') rawVerdict = 'APPROVE';
       events.push({
         event: 'verdict',
         command: '/review',
-        detail: { reviewer: 'nando', verdict: nandoVerdict[1].toUpperCase() }
+        detail: { reviewer: 'nando', verdict: rawVerdict }
       });
     }
 
