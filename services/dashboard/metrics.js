@@ -27,7 +27,8 @@ function createZeroProjectSummary(key) {
       'finding-overturned': 0,
       'fleet-shard-complete': 0,
       'command-completed': 0,
-      'auto-fix-applied': 0
+      'auto-fix-applied': 0,
+      'finding-verified': 0
     },
     verdicts: {
       nando: { APPROVE: 0, 'CONDITIONAL APPROVE': 0, REVISE: 0, BLOCK: 0 },

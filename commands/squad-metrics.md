@@ -1,14 +1,14 @@
 ---
 name: squad-metrics
-description: Summarize Review Squad usage from telemetry logs — commands invoked, verdicts, auto-fix rounds, fleet shards, per week/month
-argument-hint: "[--period week|month|all (default month)] [--project <name>] [--json]"
+description: Summarize Review Squad usage from telemetry logs — commands invoked, verdicts, verifier decisions, calibration, outcomes, per week/month
+argument-hint: "[--period week|month|all (default month)] [--project <name>] [--json] [--calibration] [--outcomes <jsonl>]"
 allowed-tools:
   - Read
   - Bash
   - Glob
 ---
 <objective>
-Read `squad-metrics.jsonl` across the user's projects and produce a summary of Review Squad usage. Data comes from the `squad-telemetry.js` PostToolUse hook, which records commands, verdicts, auto-fix outcomes, and fleet shard completions.
+Read `squad-metrics.jsonl` across the user's projects and produce a summary of Review Squad usage. Data comes from the `squad-telemetry.js` PostToolUse hook, which records commands, verdicts, neutral verifier decisions, auto-fix outcomes, and fleet shard completions.
 
 Answers: Are `/review-auto` / `/fleet` / `/ui-iterate` actually being used? What's the verdict distribution? Is `/review-auto` reducing round count? Which projects churn vs. ship clean?
 </objective>
@@ -18,6 +18,8 @@ $ARGUMENTS:
 - `--period week|month|all` — window to summarize (default: month)
 - `--project <name>` — filter to a single project (default: all projects)
 - `--json` — raw JSON output instead of markdown summary
+- `--calibration` — also generate per-agent/per-class calibration using `scripts/review-squad/summarize-calibration.js` when available
+- `--outcomes <jsonl>` — summarize local review outcome records using `scripts/review-squad/record-review-outcome.js` when available
 
 Reads from `~/.claude/projects/<sanitized-cwd>/memory/squad-metrics.jsonl` across all project dirs.
 </context>
@@ -72,6 +74,9 @@ Aggregate bins:
 - **Invocations per command** — `command-invoked` + inferred invocations (verdict implies `/review`, auto-fix-round implies `/review-auto`, etc.)
 - **Verdicts per command** — count APPROVE / CONDITIONAL APPROVE / REVISE / BLOCK + CONFIRM / CHALLENGE
 - **Auto-fix metrics** — total rounds, rounds-to-APPROVE distribution, worker success rate (SUCCESS / MULTI-FILE / NOT FOUND / UNEXPECTED)
+- **Verifier metrics** — `finding-verified` counts by CONFIRMED / REJECTED / BLOCKED
+- **Calibration summary** — when `--calibration` is passed and the helper exists, include per-agent/per-class overturned, verified, confirmed, rejected, blocked, and auto-fix counts
+- **Outcome summary** — when `--outcomes <jsonl>` is passed and the helper exists, include accepted/rejected finding totals, verifier decisions, review minutes, auto-fix success, and post-merge regression signal
 - **Fleet metrics** — shard-complete counts
 - **Per-project breakdown** — top 5 projects by invocation count
 
@@ -105,6 +110,11 @@ Otherwise, markdown table:
 - Rounds-to-APPROVE: 1 round = 14, 2 rounds = 6, 3+ rounds = 2
 - Worker success rate: 91% SUCCESS, 5% MULTI-FILE, 2% NOT FOUND, 2% UNEXPECTED
 
+## Neutral verifier
+- Confirmed: 12
+- Rejected: 5
+- Blocked: 3
+
 ## /fleet
 - Total shards completed: 15 (across 6 invocations)
 - Avg shards per invocation: 2.5
@@ -121,6 +131,18 @@ Otherwise, markdown table:
 - /review-auto cutting round count: yes (64% of REVISEs close in 1 auto-fix round)
 - /fleet usage: infrequent (6 invocations in 30 days — reassess priority of monorepo mode)
 - /ui-iterate usage: light (4 invocations — still validating the fitness loop)
+```
+
+When `--calibration` is passed:
+
+```bash
+scripts/review-squad/summarize-calibration.js --json
+```
+
+When `--outcomes <jsonl>` is passed:
+
+```bash
+scripts/review-squad/record-review-outcome.js --summary <jsonl> --json
 ```
 
 ## Step 5: Signals section (interpretation)

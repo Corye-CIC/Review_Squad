@@ -29,6 +29,7 @@ $ARGUMENTS — Optional. Can be:
 - `--skip-preflight`: Skip the Step 0 gate (use only when you have a justification)
 - `--pr <N>`: Explicitly bind this review to PR #N (enables branch-assertion check)
 - `--mode <skip|thin|full|deep>`: Override the Step 0.5 classifier
+- `--calibration <path>`: Optional calibration summary for telemetry-informed routing. Defaults to `.review-squad/<project>/calibration-summary.json` when present
 - `--incremental`: When the argument is a commit range (e.g., `HEAD~3..HEAD`), review each commit separately, carrying findings from earlier commits forward as context (see Step 1.5)
 - `--ci`: Headless mode. Suppress markdown narrative; emit a single `<squad-verdict-json>...</squad-verdict-json>` block per `docs/squad-json-schema.md`. Auto-enabled when `CLAUDE_CODE_HEADLESS=1` is set. In CI, classifier caps at thin-mode unless deep-mode triggers fire (aggressive pre-filter; overridable with `--mode`)
 </context>
@@ -97,7 +98,7 @@ When `CI_MODE=true`:
 
 ## Step 0.5: Diff classifier (routing)
 
-Classify the diff so the squad can skip trivial changes, run thin on small ones, and escalate on high-risk surfaces. Output a single `ROUTING_MODE` that the rest of the command consults.
+Classify the diff so the squad can skip trivial changes, run thin on small ones, and escalate on high-risk surfaces. Output a single `ROUTING_MODE` that the rest of the command consults. Prefer the shared route helper when this Review Squad checkout includes it; fall back to the inline rules when the helper is unavailable.
 
 ### 0.5a. Collect routing signals
 
@@ -121,9 +122,49 @@ FILES=$(cat /tmp/_review_files_unique_$$)
 FILE_COUNT=$(echo "$FILES" | grep -c . || echo 0)
 ```
 
+### 0.5a.1. Prefer shared route helper
+
+If `scripts/review-squad/explain-review-route.js` exists, use it as the authoritative classifier so Claude and Codex reviews share the same routing policy:
+
+```bash
+PROJECT_NAME=$(basename "$(pwd)")
+DEFAULT_CALIBRATION=".review-squad/${PROJECT_NAME}/calibration-summary.json"
+CALIBRATION_ARG=""
+
+if echo "$ARGUMENTS" | grep -q -- '--calibration '; then
+  CALIBRATION_PATH=$(echo "$ARGUMENTS" | sed -n 's/.*--calibration \([^ ]*\).*/\1/p' | head -1)
+elif [ -f "$DEFAULT_CALIBRATION" ]; then
+  CALIBRATION_PATH="$DEFAULT_CALIBRATION"
+else
+  CALIBRATION_PATH=""
+fi
+
+if [ -n "$CALIBRATION_PATH" ] && [ -f "$CALIBRATION_PATH" ]; then
+  CALIBRATION_ARG="--calibration $CALIBRATION_PATH"
+fi
+
+MODE_ARG=""
+if echo "$ARGUMENTS" | grep -q -- '--mode '; then
+  MODE_OVERRIDE=$(echo "$ARGUMENTS" | sed -n 's/.*--mode \([^ ]*\).*/\1/p' | head -1)
+  MODE_ARG="--mode $MODE_OVERRIDE"
+fi
+
+CI_ARG=""
+if [ "$CI_MODE" = "true" ]; then
+  CI_ARG="--ci"
+fi
+
+ROUTING_JSON=$(scripts/review-squad/explain-review-route.js --json --files /tmp/_review_files_unique_$$ --lines "$LINES_CHANGED" $MODE_ARG $CI_ARG $CALIBRATION_ARG)
+ROUTING_MODE=$(printf '%s' "$ROUTING_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>console.log(JSON.parse(s).mode))')
+ROUTING_VERIFIER=$(printf '%s' "$ROUTING_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>console.log(JSON.parse(s).verifier||"not-required"))')
+ROUTING_TELEMETRY_HINTS=$(printf '%s' "$ROUTING_JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>console.log((JSON.parse(s).telemetry_hints||[]).map(h=>`${h.type}:${h.class}`).join(", ")))')
+```
+
+When the helper succeeds, skip Step 0.5b and use its JSON in prompts, Nando synthesis, final output, and CI metadata. `telemetry_hints` are explanatory; they must not suppress Stevey on UI/accessibility files.
+
 ### 0.5b. Classify
 
-Apply these rules in order. First match wins. Routing output is one of: `skip-mode` | `thin-mode` | `full-mode` | `deep-mode`.
+If the shared route helper is unavailable, apply these rules in order. First match wins. Routing output is one of: `skip-mode` | `thin-mode` | `full-mode` | `deep-mode`.
 
 1. **deep-mode** — if ANY of:
    - File path matches `migrations/`, `migrate/`, `schema/`, or filename ends in `.sql`
@@ -167,7 +208,7 @@ case "$ROUTING_MODE" in
 esac
 ```
 
-Export `ROUTING_MODE` as a shell variable for downstream steps.
+Export `ROUTING_MODE`, `ROUTING_JSON`, `ROUTING_VERIFIER`, and `ROUTING_TELEMETRY_HINTS` as shell variables for downstream steps when available.
 
 ### 0.5d. Classifier override
 
@@ -445,6 +486,13 @@ Spawned agents receive:
 - `pm-cory-review` — with all changed files + SQUAD_DIR path for persistent memory
 - `jared-audit` (deep-mode only) — same file list but with an explicit mandate: "This review was classified as high-risk. Perform a full security audit pass against Tier 1 + Tier 2 checks from `agents/_shared/jared-security-intelligence.md`."
 
+Include the routing note in every reviewer prompt:
+
+```text
+Routing note:
+{ROUTING_JSON if available, otherwise ROUTING_MODE + inline classifier reason}
+```
+
 ### Step 4 behavior under chunking
 
 If `CHUNKED=false`: spawn the roster once on the full file set (existing behavior).
@@ -474,6 +522,34 @@ Files listed here that also appear in <injected-context> are pre-loaded — do n
 </file-scope>
 ```
 
+## Step 4.5: Neutral verification for high-risk findings
+
+Before Nando synthesis, send high-risk findings through `neutral-verifier` when the agent is available. Trigger verification when any of the following are true:
+
+- `ROUTING_VERIFIER == required`
+- finding class is security, auth/session/permissions, migration/schema/data loss, critical correctness, broad refactor regression, or accessibility blocker
+- `ROUTING_TELEMETRY_HINTS` contains a `noisy-class` hint for the finding class
+
+Verifier prompt template:
+
+```text
+Verify this Review Squad finding from visible evidence only.
+
+Reviewer:
+Finding class:
+Claim:
+Cited evidence:
+Routing note:
+
+Return:
+Decision: CONFIRMED | REJECTED | BLOCKED
+Evidence:
+Reasoning:
+Required next action:
+```
+
+Do not broaden scope. `CONFIRMED` requires concrete cited evidence. `REJECTED` and `BLOCKED` findings can still be shown to Nando, but they must not become blockers without Nando explicitly explaining why the verifier result is insufficient.
+
 ## Step 5: Spawn Nando
 
 After all parallel agents complete, spawn `nando-review` with all their outputs concatenated.
@@ -482,6 +558,8 @@ Nando receives:
 - `Context is pre-loaded in <injected-context> below. Do not re-read those files.` at the top of the task description
 - The assembled `<injected-context>` block from Step 3.5 (with `agent="nando-review"`)
 - All agent outputs
+- All neutral verifier outputs from Step 4.5
+- The routing note from Step 0.5, including telemetry hints when present
 - The file list
 - Working directory: {cwd}
 - Instructions to read any files flagged by multiple reviewers that are NOT already in `<injected-context>`

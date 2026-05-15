@@ -25,7 +25,7 @@ All records share these fields regardless of event type.
 | `session_id` | `string` | Claude session identifier, or `"unknown"` if not available. |
 | `project` | `string` | Basename of the working directory at event time. |
 | `cwd` | `string` | Full working directory path at event time. |
-| `event` | `string` | Event type. One of the 7 values listed in the Event Types section. |
+| `event` | `string` | Event type. One of the 8 values listed in the Event Types section. |
 | `command` | `string` | Slash command that triggered this event (e.g. `/review`, `/fleet`). |
 | `detail` | `object` | Event-specific payload. Shape varies by `event` — see below. |
 
@@ -195,6 +195,32 @@ Emitted once per individual fix attempt to record whether it succeeded or failed
 
 ---
 
+### 8. `finding-verified`
+
+Emitted when a high-risk finding receives a neutral verifier decision.
+
+```json
+{
+  "event": "finding-verified",
+  "command": "/review",
+  "detail": {
+    "reviewer": "jared",
+    "verifier": "neutral_verifier",
+    "finding_class": "auth/session/permissions",
+    "decision": "CONFIRMED"
+  }
+}
+```
+
+| Detail Field | Type | Description |
+|---|---|---|
+| `reviewer` | `string` | Agent whose finding was verified. |
+| `verifier` | `string` | Verifier agent name. Current Codex verifier: `"neutral_verifier"`. |
+| `finding_class` | `string` | Short class label for calibration. |
+| `decision` | `string` | One of `"CONFIRMED"`, `"REJECTED"`, or `"BLOCKED"`. |
+
+---
+
 ## Schema Version Rules
 
 **Current version:** `"1"` (string, not number).
@@ -218,6 +244,7 @@ Emitted once per individual fix attempt to record whether it succeeded or failed
 |---|---|
 | `/squad-metrics` | CLI command that reads the JSONL file and summarises squad activity. |
 | Dashboard `/api/metrics` | HTTP endpoint on port 4003 that serves aggregated metrics to the local dashboard. |
+| `summarize-calibration.js` | Local calibration summary for overturned, verified, and auto-fix outcomes. |
 | Future CI tooling | Planned integration to surface metrics in CI pipelines. |
 
 ---

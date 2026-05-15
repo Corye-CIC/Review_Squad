@@ -2,6 +2,89 @@
 
 A 6-agent review and development squad for [Claude Code](https://claude.com/claude-code). The squad covers the full development lifecycle from discussion through shipping, with specialized agents handling code quality, security, UX, program management, architectural oversight, and product management.
 
+## Codex Quickstart
+
+This repo now includes a Codex-native port alongside the original Claude-oriented assets.
+
+Codex uses three main surfaces here:
+
+- `.codex/agents/` for project-scoped custom subagents
+- `.agents/skills/` for workflow entry points
+- `scripts/review-squad/` for direct helper scripts
+
+The recommended Codex lifecycle is:
+
+```text
+$discuss -> $research -> $plan -> $consult -> $implement -> $squad-review -> $ship
+```
+
+If you want the shortest path, start at `$consult` for approach design or `$squad-review` for a multi-agent review.
+
+### First Session
+
+Run the state bootstrapper first:
+
+```bash
+scripts/review-squad/ensure-squad-state.sh
+```
+
+Then use the skill aliases in Codex:
+
+```text
+$discuss add a Codex quickstart section to the README
+$research evaluate the best placement and examples
+$plan create the implementation plan
+$consult produce the implementation brief
+$implement execute the brief
+$squad-review review the doc changes
+$ship prepare the branch for merge
+```
+
+### Skills vs Scripts
+
+Skills are the primary Codex interface:
+
+- `discuss`
+- `research`
+- `plan`
+- `consult`
+- `implement`
+- `squad-review`
+- `ship`
+- `neutral-verify`
+
+Helper scripts are direct operational tools:
+
+```bash
+scripts/review-squad/ensure-squad-state.sh
+scripts/review-squad/ship-prepare.sh "Optional title"
+```
+
+`agent-chat` is optional observability tooling, not part of the normal path:
+
+```bash
+scripts/review-squad/agent-chat-on.sh
+scripts/review-squad/agent-chat-off.sh --copy-default
+```
+
+It is local-only and setup-dependent.
+
+### Where State Lives
+
+Review Squad persists workflow artifacts under:
+
+```text
+.review-squad/<project-name>/
+```
+
+That directory stores discussion, research, plan, brief, review history, learnings, agent notes, and generated ship artifacts.
+
+### Mapping Note
+
+Claude slash commands do not port 1:1 to Codex. In Codex, prefer `$skill-name` invocation and use the helper scripts for direct operational tasks.
+
+See [`CODEX_MIGRATION.md`](CODEX_MIGRATION.md) for the full Claude-to-Codex mapping, model policy, helper details, and command caveats. Reusable project rules translated from Claude live in [`AGENTS.md`](AGENTS.md).
+
 > **V5.0 Phase 4** — Dashboard MVP. Standalone read-only HTTP server at `127.0.0.1:4003` (zero npm runtime deps, Node.js built-ins only — `http`, `fs`, `readline`, `url`) that reads `~/.claude/projects/*/memory/squad-metrics.jsonl` across all projects, dedupes worktrees by stripping `(--worktrees-.+|-.worktrees-.+)$` from the sanitized directory name, aggregates verdict and auto-fix events per project and per ISO week, and serves a three-column single-page UI: project list + filter (left), verdict trend chart + stats strip + drift-status placeholder (center), live agent chat via `ws://${location.hostname}:4001` with exponential backoff reconnect (1s → 30s cap, ±500ms jitter, `wss:`/`ws:` derived from `location.protocol`) (right). **Accessibility:** WCAG 2.1 AA compliant — SVG trend chart has `role="img"` + `aria-labelledby="trend-title trend-desc"` + `focusable="false"` with `<title>`/`<desc>` preserved across every re-render (the `renderTrend()` SVG clear loop captures and re-appends both), hand-authored pattern fills (diagonal-hatch / vertical-lines / dots) differentiate APPROVE / REVISE / BLOCK without relying on color, `<section aria-labelledby="trend-heading">` + visually-hidden `<h2>` gives the metrics landmark an accessible name, selected project uses `aria-current="true"` (not orphaned `aria-selected`), `:focus-visible` outlines are always explicit 2px accent-blue rings, `--text-muted` lifted from 2.43:1 (#484f58) to 5.1:1 (#768390) across all informational labels, empty-state SVG text migrated off the stale hex, `prefers-reduced-motion` + `prefers-contrast: more` media blocks replicated, paired `visually-hidden` data table mirrors the SVG chart for screen readers. **Security:** host-header DNS-rebinding guard (accepts `127.0.0.1:4003` and `localhost:4003` only), symlink rejection via `fs.promises.realpath` + base-prefix check (`resolved.startsWith(metricsRoot + path.sep)`), 5 MB per-file size cap, `X-Content-Type-Options: nosniff` + `X-Frame-Options: DENY` + `Cache-Control: no-store` on all JSON responses, method gate returns 405 with `Allow: GET` header, no `cwd` leak in API responses, `Object.prototype.hasOwnProperty.call` guards prevent prototype pollution from parsed JSONL, `APPROVED` → `APPROVE` normalization at the telemetry emission boundary prevents silent data loss in the aggregator. **Schema contract:** `docs/squad-metrics-telemetry-schema.md` formalizes the v1 JSONL shape for all 7 event types (`verdict`, `auto-fix-round`, `auto-fix-applied`, `command-invoked`, `command-completed`, `fleet-shard-complete`, `finding-overturned`) with additive-vs-breaking rules and an implicit-v1 reader rule; `hooks/squad-telemetry.js` adds `schema_version: '1'` to every new record; consumers (dashboard `/api/metrics`, future CI tooling) skip records with unrecognized versions and increment a `parse_warnings` counter. **Tests:** 9 unit tests via `npx tsx --test` (routes, schema_version gating, implicit-v1 handling, unknown-version parse-warning, worktree dedup, method gate, team endpoint stub, and EADDRINUSE surfaces via `onError` callback), 7 Playwright E2E tests (title, API schema, accessibility landmarks, drift panel `aria-live`, SVG wrapper attributes + `#trend-title`/`#trend-desc` attached-after-render, project-scope-note visibility, error banner on 500). **Slash command:** `/dashboard` starts the server as a nohup daemon with a `/tmp/dashboard.pid` PID file and a 50×100ms readiness poll. Five rounds of squad review to APPROVE + CONFIRM: Round 1 scoped 4B-1 through 4B-4; Round 2 closed 5 nits (TOCTOU fix at `createReadStream(resolved)`, dead `opts.port`, empty tbody population, `applied_failed` snake_case, 4 E2E assertions); Round 3 REVISE caught 6 a11y gaps (SVG ARIA, `tr.innerHTML` XSS surface, broken `role="listbox"`, E2E wrong-element assertion, `:focus-visible` `outline:none`, doc drift); Round 4 REVISE caught the SVG title/desc render-loop regression + `aria-selected`-without-role + WCAG contrast fail + parse-warning `aria-label` silencing + `APPROVED` telemetry data loss + missing `h2` landmark + 100-line `scanMetrics` + port-conflict test gap + E2E survival check; Round 5 closed Stevey's mid-round `#484f58` empty-state catch. `scanMetrics` refactored into 5 single-responsibility helpers (`bumpVerdict`, `createZeroWeekBucket`, `applyRecord`, `aggregateProjectFile`, `resolveProjectFile`) now ~35 lines. Phase 4C deferred: functional drift panel (requires `/squad-drift --cache` writer); team view (requires Phase 3 shared state to stabilize); false-positive leaderboard (reactivates at ≥3 `finding-overturned` events). — [Full changelog →](https://corye-cic.github.io/Review_Squad/changelogs/v5.0-phase4.html)
 >
 > **V5.0 Phase 3** — Team shared state via `/squad-sync`. Five subcommands synchronise the squad knowledge base (`learnings.jsonl`, `patterns.md`, `codebase-map.md`, `review-history.md`) with a team-owned git remote so multiple developers share a single growing intelligence. `--init <remote-url>` validates the URL (rejecting credential-embedded and non-`https`/`git`/`git@` schemes), appends `.review-squad/` to `.gitignore` as a blocking step zero, creates a private GitHub repo via API (10s timeout, single 5xx retry), writes `config.json` with all four schema fields (`remote_url`, `strategy`, `sync_branch`, `team_members`), and registers the `squad-state` git remote. `--push` reads and re-validates `config.json` (SSRF-safe re-read), performs a fork push safety check, clones into a `chmod 700` temp dir, copies only the four shared files by name (never `git add .`), commits with an explicit `user.name=squad-sync` identity, and writes a `.last-push` sentinel. `--pull` re-validates config, clones into a second temp dir, runs union dedup on `learnings.jsonl` (full-line dedup, no `git merge` ever on that file), and overwrites the other three files under remote-wins policy, writing a `.last-pull` sentinel on completion. `--status` reads both sentinels for honest timestamps, `git fetch`es to populate the local tracking ref, then reports one of four sync states (`[synced]` / `[remote has changes — run --pull]` / `[never synced — run --pull]` / `[remote unreachable]`). `--merge` scans `patterns.md`, `codebase-map.md`, `review-history.md` for conflict markers with line numbers and prints resolution instructions. `agent-notes/` is per-user and is never synced. `docs/squad-sync-config-schema.md` documents the config schema, strategy enum, team_members structure, and migration path from per-user agent-notes naming. Eight rounds of Review Squad review applied before merge; final hardening: `jq -r '.remote_url // empty'` null guard (Gotcha #3), tracking-ref fix in `--status`, and `n=$((n + 1))` safe increments throughout. — [Full changelog →](https://corye-cic.github.io/Review_Squad/changelogs/v5.0-phase3.html)

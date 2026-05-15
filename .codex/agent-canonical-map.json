@@ -1,0 +1,110 @@
+{
+  "version": 1,
+  "description": "Maps Codex agent TOML files to the canonical Review Squad markdown prompts they were ported from. Optional sections/manual_summary fields guide scripts/review-squad/generate-codex-agent-stubs.js. Run scripts/review-squad/check-codex-agent-drift.js after changing agents/*.md.",
+  "agents": {
+    ".codex/agents/emily-debate-validator.toml": {
+      "canonical": "agents/emily-review.md",
+      "sha256": "35516c72649c444a5648a045dcf5db6e42a10ebc3fcacc895975cfa02dc78f15"
+    },
+    ".codex/agents/emily-discusser.toml": {
+      "canonical": "agents/emily-discuss.md",
+      "sha256": "a665da18037b42754fdfbea3e862d5ecad33c264b0c85f4f75af1d5c83941083"
+    },
+    ".codex/agents/emily-planner.toml": {
+      "canonical": "agents/emily-plan.md",
+      "sha256": "910afab71959b4539292742c11ce877c15e7b376b8c9ca10a366eb5786ba56d1"
+    },
+    ".codex/agents/emily-researcher.toml": {
+      "canonical": "agents/emily-research.md",
+      "sha256": "690f56e7e820d2b182fa704b64302e387b1e94e4d8f1a99b72e66326b17f6791"
+    },
+    ".codex/agents/emily-reviewer.toml": {
+      "canonical": "agents/emily-review.md",
+      "sha256": "35516c72649c444a5648a045dcf5db6e42a10ebc3fcacc895975cfa02dc78f15"
+    },
+    ".codex/agents/emily-validator.toml": {
+      "canonical": "agents/emily-implement.md",
+      "sha256": "5656388dc79d3dec8708d5367512c97776bb9057c0f316276d43c69d383c1dbd"
+    },
+    ".codex/agents/fc-auditor.toml": {
+      "canonical": "agents/father-christmas-audit.md",
+      "sha256": "520267e8b53172f82b2f2483aecf68c8081f7284dd7ba2633ec62953cc0f6a78"
+    },
+    ".codex/agents/fc-consultant.toml": {
+      "canonical": "agents/father-christmas-consult.md",
+      "sha256": "6d4b97e883f9c3e360a996ca14397debe1b7a7faa68cb3f2e778d97ff6dd096b"
+    },
+    ".codex/agents/fc-implementer.toml": {
+      "canonical": "agents/father-christmas-implement.md",
+      "sha256": "ea610bda33ad192c3af6667a4d376adb413565728928ff01069158c1eb9ffb73"
+    },
+    ".codex/agents/fc-reviewer.toml": {
+      "canonical": "agents/father-christmas-review.md",
+      "sha256": "f63c241801e688d6cb33333691ade0f7ce797cad5d84a5037a2ca5221194d72f"
+    },
+    ".codex/agents/jared-auditor.toml": {
+      "canonical": "agents/jared-audit.md",
+      "sha256": "0a4f917ddca63df2f962fc748bdfae3d2ca75dda452e9ea83190cd568eabcde6"
+    },
+    ".codex/agents/jared-consultant.toml": {
+      "canonical": "agents/jared-consult.md",
+      "sha256": "e75180d01145dcbaec1478aea2f8565f0a589d591f0670880a6251b5a1432bc1"
+    },
+    ".codex/agents/jared-implementer.toml": {
+      "canonical": "agents/jared-implement.md",
+      "sha256": "168fd7b5ff2ea463bec3b9346fd8a9f017f505feaa69074e08d37f068046e027"
+    },
+    ".codex/agents/jared-reviewer.toml": {
+      "canonical": "agents/jared-review.md",
+      "sha256": "722416bf1208337ac9866a787af33c84f988e1bb233124c862f815e9d3d0af7e"
+    },
+    ".codex/agents/nando-consultant.toml": {
+      "canonical": "agents/nando-consult.md",
+      "sha256": "ea826538222ce0dfcc1660542b7068c405e33a06c4f0b4176ca1879a8602aaaf"
+    },
+    ".codex/agents/nando-debate-judge.toml": {
+      "canonical": "agents/nando-review.md",
+      "sha256": "b1ba7994b113c32e1812a47c818e364acc03117cffc9d487151a57b3bed013f5"
+    },
+    ".codex/agents/nando-implementer.toml": {
+      "canonical": "agents/nando-implement.md",
+      "sha256": "d958265c2c1a0fa8669f6a892f34be35482ff3a652ec959e6cbaeb15ea1210db"
+    },
+    ".codex/agents/nando-reviewer.toml": {
+      "canonical": "agents/nando-review.md",
+      "sha256": "b1ba7994b113c32e1812a47c818e364acc03117cffc9d487151a57b3bed013f5"
+    },
+    ".codex/agents/neutral-verifier.toml": {
+      "codex_native": true,
+      "rationale": "Evidence-only PRISM-inspired verifier. No canonical Claude persona source exists."
+    },
+    ".codex/agents/pm-cory-consultant.toml": {
+      "canonical": "agents/pm-cory-consult.md",
+      "sha256": "c6e3764e6b20c1a0d8812ce76b73b89b2baee5469a6dd66c62be3d2b457134ca"
+    },
+    ".codex/agents/pm-cory-early.toml": {
+      "canonical": "agents/pm-cory-early.md",
+      "sha256": "53f9eaf4a190eb9954ff7d9d34994905733b410e92a2bb62aa2a073171a28bae"
+    },
+    ".codex/agents/pm-cory-implementer.toml": {
+      "canonical": "agents/pm-cory-implement.md",
+      "sha256": "0e63dedc543f41d8a7263e060ab965d2901925d9e35edd0038bc693fe0a28a17"
+    },
+    ".codex/agents/pm-cory-reviewer.toml": {
+      "canonical": "agents/pm-cory-review.md",
+      "sha256": "f589f7bdda0355097a0c17200670c4b568c1af2f5c47a884df3de84e78e3275b"
+    },
+    ".codex/agents/stevey-consultant.toml": {
+      "canonical": "agents/stevey-boy-choi-consult.md",
+      "sha256": "ec7e94448defce3331856626da72897409dd66a1af63d52e997b82380812d49e"
+    },
+    ".codex/agents/stevey-implementer.toml": {
+      "canonical": "agents/stevey-boy-choi-implement.md",
+      "sha256": "424470048fd7ad8d8971aa05ac9ae5bfb51a16a637ff4010173bd3f4d087a039"
+    },
+    ".codex/agents/stevey-reviewer.toml": {
+      "canonical": "agents/stevey-boy-choi-review.md",
+      "sha256": "76227250fa537f508624e4f34b2544de90483ae73fab5e32d136af7cac42ac3d"
+    }
+  }
+}
